@@ -1,0 +1,88 @@
+{
+  "expo": {
+    "name": "LevelUp",
+    "slug": "tracker-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/app-icon.png",
+    "scheme": "tracker",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/levelup-logo-wide.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0a0a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tracker.app",
+      "infoPlist": {
+        "NSMotionUsageDescription": "Подсчёт шагов по акселерометру (как на сайте).",
+        "NSLocationWhenInUseUsageDescription": "Запись GPS при беге и отображение территорий на карте.",
+        "UIBackgroundModes": ["remote-notification"]
+      }
+    },
+    "android": {
+      "permissions": [
+        "android.permission.ACTIVITY_RECOGNITION",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "package": "com.tracker.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0a0a",
+        "foregroundImage": "./assets/images/app-icon.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png",
+      "name": "LevelUp",
+      "shortName": "LevelUp",
+      "display": "standalone",
+      "backgroundColor": "#FFFFFF",
+      "themeColor": "#FFFFFF"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/levelup-logo-wide.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0a0a0a"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Нужен GPS для бега и карты территорий."
+        }
+      ],
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Доступ к фото для аватара и анализа еды в AI.",
+          "cameraPermission": "Камера для съёмки еды и оценки калорий в AI."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/app-icon.png",
+          "color": "#ffffff"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "2902df6a-b7fa-47a7-bb38-9554b5df3bbd"
+      }
+    }
+  }
+}

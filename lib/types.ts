@@ -1,0 +1,120 @@
+export type Task = { id: string; name: string };
+
+export type ProjectStatus = 'active' | 'done' | 'paused';
+
+/** Стадия разработки — видна всем в общем списке проектов */
+export type DevStage = 'idea' | 'design' | 'dev' | 'qa' | 'release';
+
+export type Project = {
+  id: string;
+  name: string;
+  stack: string;
+  progress: number;
+  status: ProjectStatus;
+  /** Стадия разработки (IT / менеджмент) */
+  devStage?: DevStage;
+  createdAt: string;
+  /** Отображаемое имя создателя */
+  createdBy?: string;
+  /** Firebase uid создателя (для прав при облачном входе) */
+  createdByUid?: string;
+};
+
+export type AccountingKind = 'income' | 'expense';
+
+export type AccountingEntry = {
+  id: string;
+  title: string;
+  amount: number;
+  kind: AccountingKind;
+  category: string;
+  date: string;
+};
+
+export type HrStatus = 'active' | 'vacation' | 'candidate' | 'offboard';
+
+export type HrEmployee = {
+  id: string;
+  name: string;
+  position: string;
+  department: string;
+  status: HrStatus;
+  hiredAt: string;
+};
+
+export type WarehouseItem = {
+  id: string;
+  name: string;
+  sku: string;
+  qty: number;
+  unit: string;
+  minQty: number;
+  location: string;
+};
+
+export type ClanRole = 'owner' | 'member';
+
+export type Clan = {
+  id: string;
+  name: string;
+  inviteCode: string;
+  ownerUid: string;
+  ownerUsername: string;
+  totalDistanceMeters: number;
+  memberCount: number;
+  createdAt: number;
+};
+
+export type ClanMember = {
+  uid: string;
+  username: string;
+  role: ClanRole;
+  distanceMeters: number;
+  joinedAt: number;
+  /** Expo push — для уведомлений без Cloud Functions */
+  expoPushToken?: string;
+};
+
+export type ClanMessage = {
+  id: string;
+  uid: string;
+  username: string;
+  text: string;
+  createdAt: number;
+};
+
+export type UserData = {
+  tasks: Task[];
+  projects?: Project[];
+  /** ID клана (спорт) */
+  clanId?: string | null;
+  /** Метка синхронизации общих проектов (ключи __it_team__ / __manager_team__) */
+  teamSyncAt?: number;
+  accountingEntries?: AccountingEntry[];
+  hrEmployees?: HrEmployee[];
+  warehouseItems?: WarehouseItem[];
+  dailyDone: Record<string, string[]>;
+  monthAchievements: Record<string, number[]>;
+  dailySteps: Record<string, number>;
+  lastVisit: string;
+  /** Суммарная дистанция пробежек (GPS) — рейтинг и кланы */
+  totalRunMeters?: number;
+  totalRuns?: number;
+};
+
+export type RunnerStat = {
+  uid: string;
+  username: string;
+  totalRunMeters: number;
+  totalRuns: number;
+  updatedAt: number;
+};
+
+export type Territory = {
+  id: string;
+  points: [number, number][];
+  owner: string;
+  capturedAt: string;
+  lastDefendedAt: string;
+  lengthMeters: number;
+};

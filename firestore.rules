@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /territories/{id} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    // Логин → email: чтение без авторизации (только get по id, не list)
+    // Запись: только владелец uid; без сравнения с token.email — иначе часто permission-denied в Expo
+    match /usernames/{name} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email is string;
+      allow update: if request.auth != null
+        && resource.data.uid == request.auth.uid;
+      allow delete: if request.auth != null
+        && resource.data.uid == request.auth.uid;
+    }
+    // Общие проекты IT / менеджмент / творчество — видны всем вошедшим пользователям
+    match /teamProjects/{topicId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    match /clans/{clanId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+      match /members/{memberId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null;
+      }
+      match /messages/{messageId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null;
+      }
+    }
+    match /clanInvites/{code} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    match /runnerStats/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /users/{userId}/pushTokens/{tokenId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
