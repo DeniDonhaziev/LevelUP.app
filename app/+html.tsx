@@ -17,7 +17,9 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
         <meta name="application-name" content="LevelUp" />
         <meta name="apple-mobile-web-app-title" content="LevelUp" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
+        {/* iOS: НЕ standalone — в standalone-PWA WebKit блокирует геолокацию.
+            Браузерный режим иконки на iOS даёт рабочую геолокацию. Android управляется манифестом. */}
+        <meta name="apple-mobile-web-app-capable" content="no" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="mobile-web-app-capable" content="yes" />
         {/*
