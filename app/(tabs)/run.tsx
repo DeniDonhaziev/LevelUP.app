@@ -25,7 +25,24 @@ import { useTrackerStore } from '@/store/trackerStore';
 import { GroupedSection } from '@/components/ui/GroupedSection';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TabScreenHeader } from '@/components/ui/TabScreenHeader';
+
+type ActivityMode = 'run' | 'bike';
+const MODE_LABELS: Record<ActivityMode, { start: string; section: string; saved: string; subtitle: string }> = {
+  run: {
+    start: 'Начать пробежку',
+    section: 'Пробежка',
+    saved: 'Пробежка сохранена в истории.',
+    subtitle: 'GPS-трекинг бега и захват территорий',
+  },
+  bike: {
+    start: 'Начать заезд',
+    section: 'Велозаезд',
+    saved: 'Заезд сохранён в истории.',
+    subtitle: 'GPS-трекинг велозаезда и захват территорий',
+  },
+};
 
 export default function RunScreen() {
   const scheme = useColorScheme() ?? 'dark';
@@ -33,6 +50,13 @@ export default function RunScreen() {
   const user = useTrackerStore((s) => s.currentUser);
   const territories = useTrackerStore((s) => s.territories);
   const finishRun = useTrackerStore((s) => s.finishRun);
+
+  const [mode, setMode] = useState<ActivityMode>('run');
+  const modeRef = useRef<ActivityMode>('run');
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+  const L = MODE_LABELS[mode];
 
   const [watching, setWatching] = useState(false);
   const [displayTrack, setDisplayTrack] = useState<[number, number][]>([]);
@@ -70,7 +94,8 @@ export default function RunScreen() {
       return;
     }
     const gen = ++snapGenRef.current;
-    void snapRouteToRoads(pts).then((snapped) => {
+    const profile = modeRef.current === 'bike' ? 'bike' : 'foot';
+    void snapRouteToRoads(pts, { profile }).then((snapped) => {
       if (snapGenRef.current !== gen) return;
       setDisplayTrack(snapped.length >= 2 ? snapped : pts);
     });
@@ -213,19 +238,32 @@ export default function RunScreen() {
       let roadPoints = pts;
       if (pts.length >= 2) {
         setGpsStatus('Привязка маршрута к дорогам…');
-        roadPoints = await snapRouteToRoads(pts, { force: true });
+        const profile = modeRef.current === 'bike' ? 'bike' : 'foot';
+        roadPoints = await snapRouteToRoads(pts, { force: true, profile });
       }
       const r = finishRun(pts, { startedAt, finishedAt, roadPoints });
       setDisplayTrack(roadPoints.length >= 2 ? roadPoints : pts);
       setResultMsg(r.message);
-      setResultDetail(r.detail + (r.detail ? '\n' : '') + 'Пробежка сохранена в истории.');
+      setResultDetail(r.detail + (r.detail ? '\n' : '') + MODE_LABELS[modeRef.current].saved);
       setStopping(false);
     })();
   }
 
   return (
     <ScreenScroll>
-      <TabScreenHeader title="Бег" subtitle="GPS-трекинг и захват территорий" />
+      <TabScreenHeader title={mode === 'bike' ? 'Велосипед' : 'Бег'} subtitle={L.subtitle} />
+
+      {/* Переключатель режима: бег / велосипед (нельзя менять во время активности) */}
+      <View style={[styles.modeSwitch, watching && { opacity: 0.5 }]} pointerEvents={watching ? 'none' : 'auto'}>
+        <SegmentedControl
+          value={mode}
+          onChange={(k) => setMode(k as ActivityMode)}
+          options={[
+            { key: 'run', label: '🏃 Бег' },
+            { key: 'bike', label: '🚴 Велосипед' },
+          ]}
+        />
+      </View>
 
       <View style={[styles.mapCard, { borderColor: c.border, backgroundColor: c.cardElevated }]}>
         <TerritoryMap
@@ -298,10 +336,10 @@ export default function RunScreen() {
         </View>
       </View>
 
-      <GroupedSection title="Пробежка">
+      <GroupedSection title={L.section}>
         <View style={styles.runSection}>
           {!watching ? (
-            <PrimaryButton label="Начать пробежку" onPress={() => void startRun()} />
+            <PrimaryButton label={L.start} onPress={() => void startRun()} />
           ) : (
             <View style={[styles.panel, { backgroundColor: c.cardHover, borderColor: c.border }]}>
               <Text style={{ color: c.text, fontSize: 32, fontFamily: 'Inter_700Bold', letterSpacing: -0.5 }}>
@@ -337,6 +375,7 @@ export default function RunScreen() {
 
 const styles = StyleSheet.create({
   runSection: { padding: 16, gap: 12 },
+  modeSwitch: { marginBottom: 14 },
   mapCard: {
     height: 380,
     borderRadius: WebTheme.radiusLg,

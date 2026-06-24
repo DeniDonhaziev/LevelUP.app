@@ -16,7 +16,7 @@ function parseGeoJsonLine(coords: number[][]): [number, number][] {
  */
 export async function snapRouteToRoads(
   points: [number, number][],
-  opts?: { force?: boolean }
+  opts?: { force?: boolean; profile?: 'foot' | 'bike' | 'driving' }
 ): Promise<[number, number][]> {
   if (points.length < 2) return points;
 
@@ -25,17 +25,18 @@ export async function snapRouteToRoads(
     return points;
   }
 
+  const profile = opts?.profile ?? 'foot';
   matchInFlight = true;
   lastMatchAt = now;
 
   try {
     if (points.length <= MATCH_CHUNK) {
-      return await matchChunk(points);
+      return await matchChunk(points, profile);
     }
     const merged: [number, number][] = [];
     for (let i = 0; i < points.length; i += MATCH_CHUNK - 1) {
       const chunk = points.slice(i, i + MATCH_CHUNK);
-      const snapped = await matchChunk(chunk);
+      const snapped = await matchChunk(chunk, profile);
       if (merged.length && snapped.length) {
         merged.push(...snapped.slice(1));
       } else {
@@ -50,14 +51,19 @@ export async function snapRouteToRoads(
   }
 }
 
-async function matchChunk(points: [number, number][]): Promise<[number, number][]> {
+async function matchChunk(
+  points: [number, number][],
+  profile: 'foot' | 'bike' | 'driving' = 'foot'
+): Promise<[number, number][]> {
   if (points.length < 2) return points;
 
+  // У велосипеда радиус привязки шире — он чаще на проезжей части
+  const radius = profile === 'bike' ? '35' : '25';
   const coordStr = points.map(([lat, lon]) => `${lon},${lat}`).join(';');
   const url =
-    `${OSRM_BASE}/match/v1/foot/${coordStr}` +
+    `${OSRM_BASE}/match/v1/${profile}/${coordStr}` +
     '?geometries=geojson&overview=full&tidy=true&radiuses=' +
-    points.map(() => '25').join(';');
+    points.map(() => radius).join(';');
 
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 12000);
