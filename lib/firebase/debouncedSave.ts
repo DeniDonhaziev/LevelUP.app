@@ -58,6 +58,18 @@ export function scheduleSaveUser(
   }, 600);
 }
 
+/** Записать отложенное сохранение (закрытие вкладки / обновление PWA). */
+export function flushPendingUserSave(): Promise<void> {
+  if (!pending) return Promise.resolve();
+  const job = pending;
+  if (timer) {
+    clearTimeout(timer);
+    timer = null;
+  }
+  pending = null;
+  return doSave(job.uid, job.displayUsername, job.data, job.profilePhotoURL, job.topicId);
+}
+
 /** Сразу записать профиль в Firestore (после пробежки и т.п.). */
 export function flushSaveUser(
   uid: string,

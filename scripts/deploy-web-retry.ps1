@@ -20,5 +20,5 @@ for ($i = 1; $i -le $max; $i++) {
   Start-Sleep -Seconds $wait
 }
 
-Write-Host '>> EAS deploy failed after all attempts. Try: VPN off, mobile hotspot, or run from Windows Terminal (not inside IDE).'
+Write-Host '>> EAS deploy failed. Try: npm run deploy:expo  (VPN off, mobile hotspot, PowerShell outside IDE).'
 exit 1

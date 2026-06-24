@@ -71,8 +71,11 @@ export type ClanMember = {
   role: ClanRole;
   distanceMeters: number;
   joinedAt: number;
-  /** Expo push — для уведомлений без Cloud Functions */
+  /** Expo push — доставка с телефона отправителя (бесплатно) */
   expoPushToken?: string;
+  /** FCM push — доставка через сервер (Cloud Function) */
+  fcmPushToken?: string;
+  pushUpdatedAt?: number;
 };
 
 export type ClanMessage = {
@@ -83,9 +86,54 @@ export type ClanMessage = {
   createdAt: number;
 };
 
+/** ── Анкета первичной регистрации (онбординг) ── */
+export type Gender = 'male' | 'female' | 'other';
+export type ActivityLevel = 'none' | 'sometimes' | 'light' | 'regular' | 'pro';
+export type OnboardingGoal =
+  | 'discipline'
+  | 'habits'
+  | 'weight_loss'
+  | 'muscle'
+  | 'health'
+  | 'activity'
+  | 'competition'
+  | 'self_growth';
+export type HealthCondition =
+  | 'none'
+  | 'heart'
+  | 'pressure'
+  | 'joints'
+  | 'respiratory'
+  | 'diabetes'
+  | 'other';
+export type RunVolume = 'none' | 'lt3' | '3-5' | '5-10' | 'gt10';
+export type StepGoal = 5000 | 8000 | 10000 | 15000;
+
+export type OnboardingProfile = {
+  completed: boolean;
+  /** Дата первого заполнения анкеты (ms) */
+  completedAt?: number;
+  /** Дата последнего редактирования (ms) */
+  updatedAt?: number;
+  name: string;
+  age: number;
+  gender: Gender;
+  heightCm: number;
+  weightKg: number;
+  activityLevel: ActivityLevel;
+  goals: OnboardingGoal[];
+  health: HealthCondition[];
+  runVolume: RunVolume;
+  stepGoal: StepGoal;
+  consentAiInformational: boolean;
+  consentConsultSpecialist: boolean;
+};
+
 export type UserData = {
   tasks: Task[];
   projects?: Project[];
+  /** Анкета пользователя (онбординг / профиль здоровья) */
+  onboarding?: OnboardingProfile;
   /** ID клана (спорт) */
   clanId?: string | null;
   /** Метка синхронизации общих проектов (ключи __it_team__ / __manager_team__) */

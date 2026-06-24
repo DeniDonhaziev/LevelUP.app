@@ -55,18 +55,16 @@ export function HeroCard({ children, style, ...rest }: ViewProps & { children: R
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: WebTheme.radius,
-    borderWidth: 1,
+    borderRadius: WebTheme.radiusLg,
+    borderWidth: StyleSheet.hairlineWidth,
     padding: 16,
     overflow: 'hidden',
-    ...WebTheme.shadowSoft,
   },
   hero: {
     borderRadius: WebTheme.radiusLg,
-    borderWidth: 1,
-    padding: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 18,
     marginBottom: 4,
     overflow: 'hidden',
-    ...WebTheme.shadowSoft,
   },
 });

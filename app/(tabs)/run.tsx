@@ -7,8 +7,10 @@ import {
   Pressable,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { TerritoryMap } from '@/components/TerritoryMap';
 import Colors from '@/constants/Colors';
+import { WebTheme } from '@/lib/theme';
 import { useColorScheme } from '@/components/useColorScheme';
 import { getTerritoryColor } from '@/lib/geo';
 import {
@@ -23,7 +25,7 @@ import { useTrackerStore } from '@/store/trackerStore';
 import { GroupedSection } from '@/components/ui/GroupedSection';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
-import { SectionTitle } from '@/components/ui/SectionTitle';
+import { TabScreenHeader } from '@/components/ui/TabScreenHeader';
 
 export default function RunScreen() {
   const scheme = useColorScheme() ?? 'dark';
@@ -223,27 +225,78 @@ export default function RunScreen() {
 
   return (
     <ScreenScroll>
-      <SectionTitle
-        title="Бег"
-        subtitle="Захват территорий по GPS. На месте километры не растут."
-      />
+      <TabScreenHeader title="Бег" subtitle="GPS-трекинг и захват территорий" />
 
-      <GroupedSection title="Карта">
-        <View style={styles.mapSection}>
-          <View style={[styles.mapBox, { borderColor: c.border }]}>
-            <TerritoryMap
-              region={mapRegion}
-              lineColor={lineColor}
-              mine={mine}
-              currentTrack={displayTrack}
-              userLocation={userLocation}
-              onLocateMe={() => void refresh()}
-              locating={locating}
-              geoHint={geoError}
-            />
+      <View style={[styles.mapCard, { borderColor: c.border, backgroundColor: c.cardElevated }]}>
+        <TerritoryMap
+          region={mapRegion}
+          lineColor={lineColor}
+          mine={mine}
+          currentTrack={displayTrack}
+          userLocation={userLocation}
+          onLocateMe={() => void refresh()}
+          locating={locating}
+          geoHint={geoError}
+          hideChrome
+        />
+
+        {/* Кнопка «моё местоположение» */}
+        <Pressable
+          onPress={() => void refresh()}
+          disabled={locating}
+          style={({ pressed }) => [styles.locateFab, { opacity: pressed ? 0.8 : 1 }]}>
+          <Ionicons name={locating ? 'sync-outline' : 'locate'} size={20} color="#16181C" />
+        </Pressable>
+
+        {/* Призыв включить геопозицию, пока её нет */}
+        {!userLocation ? (
+          <View style={styles.geoPromptWrap} pointerEvents="box-none">
+            <Pressable
+              onPress={() => void refresh()}
+              disabled={locating}
+              style={({ pressed }) => [styles.geoPromptBtn, { opacity: pressed ? 0.9 : 1 }]}>
+              <Ionicons name="navigate" size={18} color="#16181C" />
+              <Text style={styles.geoPromptText}>
+                {locating ? 'Определяем…' : 'Показать мою геопозицию'}
+              </Text>
+            </Pressable>
+            {geoError ? <Text style={styles.geoPromptHint}>{geoError}</Text> : null}
+          </View>
+        ) : null}
+
+        {/* Плавающая инфо-карточка */}
+        <View style={[styles.mapInfoCard, { backgroundColor: 'rgba(20,20,22,0.92)', borderColor: watching ? c.lime : c.border }]}>
+          <View style={styles.infoHeader}>
+            <View style={[styles.statusPill, { backgroundColor: watching ? c.lime : c.cardHover }]}>
+              {watching ? <View style={styles.liveDot} /> : null}
+              <Text style={[styles.statusPillText, { color: watching ? '#16181C' : c.muted }]}>
+                {watching ? 'LIVE' : 'GPS'}
+              </Text>
+            </View>
+            <Text style={[styles.infoLocation, { color: '#FFFFFF' }]} numberOfLines={1}>
+              {userLocation
+                ? `${userLocation.latitude.toFixed(4)}, ${userLocation.longitude.toFixed(4)}`
+                : geoError || 'Определите позицию'}
+            </Text>
+          </View>
+          <View style={styles.infoStats}>
+            <View style={styles.infoStat}>
+              <Text style={styles.infoStatLabel}>Дистанция</Text>
+              <Text style={styles.infoStatValue}>{distText}</Text>
+            </View>
+            <View style={[styles.infoDivider, { backgroundColor: c.border }]} />
+            <View style={styles.infoStat}>
+              <Text style={styles.infoStatLabel}>Время</Text>
+              <Text style={styles.infoStatValue}>{timerText}</Text>
+            </View>
+            <View style={[styles.infoDivider, { backgroundColor: c.border }]} />
+            <View style={styles.infoStat}>
+              <Text style={styles.infoStatLabel}>Точек</Text>
+              <Text style={styles.infoStatValue}>{displayTrack.length}</Text>
+            </View>
           </View>
         </View>
-      </GroupedSection>
+      </View>
 
       <GroupedSection title="Пробежка">
         <View style={styles.runSection}>
@@ -283,9 +336,96 @@ export default function RunScreen() {
 }
 
 const styles = StyleSheet.create({
-  mapSection: { padding: 12 },
   runSection: { padding: 16, gap: 12 },
-  mapBox: { height: 260, borderRadius: 12, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
+  mapCard: {
+    height: 380,
+    borderRadius: WebTheme.radiusLg,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    position: 'relative',
+    marginBottom: 16,
+    ...WebTheme.shadowSoft,
+  },
+  geoPromptWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 90,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 24,
+  },
+  geoPromptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#C1FF00',
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  geoPromptText: { color: '#16181C', fontSize: 14, fontFamily: 'Inter_700Bold' },
+  geoPromptHint: {
+    color: '#16181C',
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+    textAlign: 'center',
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  locateFab: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  mapInfoCard: {
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    bottom: 14,
+    borderRadius: WebTheme.radius,
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
+  },
+  infoHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#16181C' },
+  statusPillText: { fontSize: 11, fontFamily: 'Inter_700Bold', letterSpacing: 0.5 },
+  infoLocation: { flex: 1, fontSize: 13, fontFamily: 'Inter_500Medium' },
+  infoStats: { flexDirection: 'row', alignItems: 'center' },
+  infoStat: { flex: 1 },
+  infoStatLabel: { color: '#8E8E93', fontSize: 11, fontFamily: 'Inter_500Medium', marginBottom: 3 },
+  infoStatValue: { color: '#FFFFFF', fontSize: 17, fontFamily: 'Inter_700Bold', letterSpacing: -0.3 },
+  infoDivider: { width: StyleSheet.hairlineWidth, height: 28, marginHorizontal: 8 },
   goBtn: { paddingVertical: 15, borderRadius: 14, alignItems: 'center', marginTop: 8 },
   goText: { fontSize: 17, fontFamily: 'Inter_700Bold', color: '#F2F2F7' },
   panel: { borderRadius: 16, borderWidth: 1, padding: 14, marginTop: 8 },

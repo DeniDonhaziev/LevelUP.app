@@ -25,10 +25,13 @@ const COACH_FORMAT = `
 Отвечай сразу по делу, без лишних вступлений.
 Детализация высокая: объясняй максимально понятно, но без повторов и воды.`;
 
-export function buildCoachSystemPrompt(_topicId: string, goal: BodyGoal): string {
+export function buildCoachSystemPrompt(_topicId: string, goal: BodyGoal, profileContext?: string): string {
   const ctx = goalRuSport(goal);
+  const profileBlock = profileContext
+    ? `\nПрофиль пользователя (из анкеты, учитывай при рекомендациях):\n${profileContext}\n`
+    : '';
   return `Ты дружелюбный коуч по питанию, тренировкам и привычкам. Язык: русский.
-Контекст цели пользователя: ${ctx}.
+Контекст цели пользователя: ${ctx}.${profileBlock}
 ${COACH_FORMAT}
 Советы должны быть безопасными, конкретными и реалистичными.
 Не ставь медицинские диагнозы. Если вопрос про лекарства или болезни — порекомендуй обратиться к врачу.`;

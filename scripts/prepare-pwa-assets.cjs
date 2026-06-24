@@ -11,6 +11,11 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true
 const ROOT = path.join(__dirname, '..');
 const SRC = path.join(ROOT, 'assets/images/app-icon.png');
 const OUT_DIR = path.join(ROOT, 'public');
+const IONICONS_SRC = path.join(
+  ROOT,
+  'node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf'
+);
+const IONICONS_DEST = path.join(OUT_DIR, 'fonts/ionicons.ttf');
 
 const SIZES = [
   { name: 'favicon.png', size: 48 },
@@ -49,6 +54,40 @@ async function main() {
     console.log('OK', name);
   }
   writeFcmSwConfig();
+  copyIoniconsFont();
+}
+
+function copyIoniconsFont() {
+  if (!fs.existsSync(IONICONS_SRC)) {
+    console.warn('WARN ionicons.ttf не найден:', IONICONS_SRC);
+    return;
+  }
+  fs.mkdirSync(path.dirname(IONICONS_DEST), { recursive: true });
+  fs.copyFileSync(IONICONS_SRC, IONICONS_DEST);
+  console.log('OK fonts/ionicons.ttf');
+}
+
+function syncToDistIfPresent() {
+  const dist = path.join(ROOT, 'dist');
+  if (!fs.existsSync(dist)) return;
+  const names = [
+    'favicon.png',
+    'apple-touch-icon.png',
+    'icon-192.png',
+    'icon-512.png',
+    'manifest.webmanifest',
+    'fcm-sw-config.js',
+    'fonts/ionicons.ttf',
+  ];
+  for (const name of names) {
+    const src = path.join(OUT_DIR, name);
+    if (fs.existsSync(src)) {
+      const dest = path.join(dist, name);
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.copyFileSync(src, dest);
+    }
+  }
+  console.log('OK public → dist (если dist существует)');
 }
 
 main().catch((e) => {

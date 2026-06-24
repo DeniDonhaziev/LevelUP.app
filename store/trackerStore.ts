@@ -33,6 +33,7 @@ import type {
   DevStage,
   HrEmployee,
   HrStatus,
+  OnboardingProfile,
   Project,
   ProjectStatus,
   Territory,
@@ -47,6 +48,12 @@ import {
   isDayMarkedAchievement,
 } from '@/lib/trackerLogic';
 import { flushSaveUser, scheduleSaveUser } from '@/lib/firebase/debouncedSave';
+import { collectLocalUserDataSnapshots, mergeUserData } from '@/lib/userDataMerge';
+import {
+  getBestRunDistance,
+  notifyRunFinished,
+  syncMotivationSchedule,
+} from '@/lib/notifications/runMotivation';
 import { saveRunnerStat } from '@/lib/firebase/runnerSync';
 import { saveTerritoriesCollection } from '@/lib/firebase/firestoreSync';
 import type { RunnerStat } from '@/lib/types';
@@ -120,6 +127,8 @@ type State = {
   setTerritories: (t: Territory[]) => void;
   getUserData: (username: string) => UserData;
   setUserData: (username: string, data: UserData) => void;
+  /** Сохранить/обновить анкету текущего пользователя (стор + Firestore) */
+  saveOnboarding: (profile: OnboardingProfile) => void;
   syncNewDay: () => void;
   getStepsToday: () => number;
   setStepsToday: (n: number) => void;
@@ -168,6 +177,7 @@ function ensureUserData(raw: UserData | undefined): UserData {
     dailySteps: raw.dailySteps || {},
     projects: raw.projects || [],
     clanId: raw.clanId ?? null,
+    onboarding: raw.onboarding,
     teamSyncAt: raw.teamSyncAt,
     totalRunMeters: raw.totalRunMeters,
     totalRuns: raw.totalRuns,
@@ -429,15 +439,33 @@ export const useTrackerStore = create<State>()(
         const name = displayUsername.trim();
         const key = name.length > 0 ? name : email;
         const tid = topicId ?? DEFAULT_TOPIC_ID;
-        set((s) => ({
+        const snapshot = get();
+        const keysToMerge = new Set<string>([key]);
+        if (email) keysToMerge.add(email);
+        if (snapshot.currentUser) keysToMerge.add(snapshot.currentUser);
+
+        const localMerged = collectLocalUserDataSnapshots(snapshot.userData, keysToMerge);
+        const merged = mergeUserData(localMerged, ensureUserData(data));
+
+        const nextUserData = { ...snapshot.userData, [key]: merged };
+        for (const stale of keysToMerge) {
+          if (stale !== key) delete nextUserData[stale];
+        }
+
+        set({
           currentUser: key,
           firebaseUid: uid,
           profilePhotoURL: photoURL ?? null,
-          /** Локальный аватар из приложения не затираем при входе в Firebase */
-          localAvatarDataUrl: s.localAvatarDataUrl,
-          userData: { ...s.userData, [key]: ensureUserData(data) },
-          userTopics: { ...s.userTopics, [key]: tid },
-        }));
+          localAvatarDataUrl: snapshot.localAvatarDataUrl,
+          userData: nextUserData,
+          userTopics: { ...snapshot.userTopics, [key]: tid },
+        });
+
+        if (isFirebaseConfigured()) {
+          void flushSaveUser(uid, key, merged, photoURL ?? snapshot.profilePhotoURL, tid).catch((e) =>
+            console.warn('Firebase flush after session:', e)
+          );
+        }
       },
 
       getTopicId: (username) => {
@@ -674,9 +702,9 @@ export const useTrackerStore = create<State>()(
         if (isFirebaseConfigured() && get().firebaseUid) {
           const firebaseUid = get().firebaseUid!;
           try {
-            const { loadClanExpoPushTokens } = await import('@/lib/firebase/clanSync');
+            const { loadClanMemberPushTokens } = await import('@/lib/firebase/clanSync');
             const { notifyClanMembersOnMessage } = await import('@/lib/notifications/sendClanPush');
-            const tokensP = loadClanExpoPushTokens(clanId, firebaseUid);
+            const tokensP = loadClanMemberPushTokens(clanId, firebaseUid);
             const saveP = sendClanMessageInFirestore(
               clanId,
               firebaseUid,
@@ -685,8 +713,8 @@ export const useTrackerStore = create<State>()(
               msgId,
               createdAt
             );
-            const [, tokens] = await Promise.all([saveP, tokensP]);
-            await notifyClanMembersOnMessage(user, trimmed, tokens);
+            const [, targets] = await Promise.all([saveP, tokensP]);
+            await notifyClanMembersOnMessage(user, trimmed, targets, clanId);
           } catch (e) {
             console.warn('sendClanMessage cloud:', e);
           }
@@ -853,6 +881,13 @@ export const useTrackerStore = create<State>()(
         if (st.firebaseUid && st.currentUser === username && isFirebaseConfigured()) {
           scheduleSaveUser(st.firebaseUid, username, data, st.profilePhotoURL, get().getTopicId(username));
         }
+      },
+
+      saveOnboarding: (profile) => {
+        const user = get().currentUser;
+        if (!user) return;
+        const data = { ...get().getUserData(user), onboarding: profile };
+        get().setUserData(user, data);
       },
 
       syncNewDay: () => {
@@ -1214,6 +1249,10 @@ export const useTrackerStore = create<State>()(
         const startedAt = meta?.startedAt ?? finishedAt;
         const durationSec = Math.max(0, Math.floor((finishedAt - startedAt) / 1000));
         const distanceMeters = routeLengthMeters(runPoints);
+        const previousBestMeters = getBestRunDistance(
+          get().runHistory.filter((r) => r.user === user),
+          user
+        );
         const runItem = {
           id: user + '-' + finishedAt,
           user,
@@ -1231,6 +1270,12 @@ export const useTrackerStore = create<State>()(
         get().setUserData(user, ud);
         set({ territories: nextTerritories, runHistory: trimmedHistory });
         get().recordClanRun(metersRounded);
+        void notifyRunFinished(user, metersRounded, previousBestMeters).catch((e) =>
+          console.warn('notifyRunFinished:', e)
+        );
+        void syncMotivationSchedule(user, trimmedHistory).catch((e) =>
+          console.warn('syncMotivationSchedule:', e)
+        );
         const st = get();
         if (isFirebaseConfigured()) {
           void saveTerritoriesCollection(nextTerritories).catch((e) =>
@@ -1286,6 +1331,7 @@ export const useTrackerStore = create<State>()(
         userData: s.userData,
         userTopics: s.userTopics,
         currentUser: s.currentUser,
+        firebaseUid: s.firebaseUid,
         profilePhotoURL: s.profilePhotoURL,
         localAvatarDataUrl: s.localAvatarDataUrl,
         territories: s.territories,
@@ -1297,6 +1343,20 @@ export const useTrackerStore = create<State>()(
     }
   )
 );
+
+/** Дождаться загрузки AsyncStorage — иначе Firebase затирает локальные цели пустым облаком. */
+export function waitForStoreHydration(): Promise<void> {
+  return new Promise((resolve) => {
+    if (useTrackerStore.persist.hasHydrated()) {
+      resolve();
+      return;
+    }
+    const unsub = useTrackerStore.persist.onFinishHydration(() => {
+      unsub();
+      resolve();
+    });
+  });
+}
 
 /** Аватар для UI: сначала локальный (сохранённый в приложении), иначе из профиля/Firebase */
 export function selectAvatarDisplayUri(s: {

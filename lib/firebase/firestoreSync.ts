@@ -81,14 +81,13 @@ export async function replaceTerritoryOwnersInFirestore(oldOwner: string, newOwn
 
 export type UserDoc = {
   email: string;
-  /** Отображаемое имя (не email); у старых документов может не быть */
   username?: string;
-  /** URL аватара (Firebase Storage) */
   photoURL?: string;
-  /** Тематика аккаунта: sport | it */
   topicId?: TopicId;
   userData: UserData;
   updatedAt: number;
+  notificationPrefs?: import('@/lib/notifications/fcm/types').NotificationPrefs;
+  notificationState?: import('@/lib/notifications/fcm/types').NotificationState;
 };
 
 export async function loadUserDocument(uid: string): Promise<UserDoc | null> {

@@ -7,17 +7,18 @@ export type GeoPoint = { latitude: number; longitude: number };
 export async function getCurrentGeoPoint(): Promise<GeoPoint | null> {
   if (Platform.OS === 'web') {
     if (typeof navigator === 'undefined' || !navigator.geolocation) return null;
-    return new Promise((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) =>
-          resolve({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          }),
-        () => resolve(null),
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
-      );
-    });
+    const tryGet = (options: PositionOptions) =>
+      new Promise<GeoPoint | null>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+          () => resolve(null),
+          options
+        );
+      });
+    // 1) точно через GPS (телефон/PWA), 2) фолбэк по Wi-Fi/сети — надёжно на ПК
+    const precise = await tryGet({ enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+    if (precise) return precise;
+    return tryGet({ enableHighAccuracy: false, maximumAge: 60000, timeout: 12000 });
   }
 
   const { status } = await Location.requestForegroundPermissionsAsync();

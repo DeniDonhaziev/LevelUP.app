@@ -1,29 +1,27 @@
-import { createElement, useCallback, useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 
 import type { TerritoryMapProps } from './territoryMapTypes';
 
-function buildBBox(
-  region: TerritoryMapProps['region'],
-  userLocation?: TerritoryMapProps['userLocation']
-) {
-  const lat = userLocation?.latitude ?? region.latitude;
-  const lon = userLocation?.longitude ?? region.longitude;
-  const dLat = userLocation ? 0.018 : (region.latitudeDelta ?? 0.05);
-  const dLon = userLocation ? 0.028 : (region.longitudeDelta ?? 0.05);
-  const minLat = lat - dLat / 2;
-  const maxLat = lat + dLat / 2;
-  const minLon = lon - dLon / 2;
-  const maxLon = lon + dLon / 2;
-  return { minLat, maxLat, minLon, maxLon, lat, lon };
+const TILE = 256;
+/** Светлый «дизайнерский» базослой как на референсе (CARTO Positron) */
+const TILE_URL = (z: number, x: number, y: number) =>
+  `https://basemaps.cartocdn.com/light_all/${z}/${x}/${y}@2x.png`;
+
+function lonToWorldX(lon: number, scale: number) {
+  return ((lon + 180) / 360) * scale;
+}
+function latToWorldY(lat: number, scale: number) {
+  const s = Math.sin((lat * Math.PI) / 180);
+  return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * scale;
 }
 
-function buildEmbedUrl(region: TerritoryMapProps['region'], userLocation?: TerritoryMapProps['userLocation']): string {
-  const { minLat, maxLat, minLon, maxLon, lat, lon } = buildBBox(region, userLocation);
-  const bbox = `${minLon},${minLat},${maxLon},${maxLat}`;
-  const base = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik`;
-  return `${base}&marker=${encodeURIComponent(`${lat},${lon}`)}`;
+/** Подбор зума так, чтобы дельта региона помещалась в видимую область */
+function pickZoom(w: number, lonDelta: number) {
+  if (!w || !lonDelta) return 13;
+  const z = Math.log2((w / TILE) * (360 / lonDelta));
+  return Math.max(3, Math.min(18, Math.floor(z)));
 }
 
 function buildOpenUrl(region: TerritoryMapProps['region'], userLocation?: TerritoryMapProps['userLocation']): string {
@@ -40,111 +38,177 @@ export function TerritoryMap({
   onLocateMe,
   locating,
   geoHint,
+  hideChrome,
 }: TerritoryMapProps) {
-  const bbox = useMemo(
-    () => buildBBox(region, userLocation),
-    [region.latitude, region.longitude, region.latitudeDelta, region.longitudeDelta, userLocation]
-  );
-  const embedUrl = useMemo(() => buildEmbedUrl(region, userLocation), [region, userLocation]);
-  const openUrl = useMemo(() => buildOpenUrl(region, userLocation), [region, userLocation]);
   const [layout, setLayout] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+  const openUrl = useMemo(() => buildOpenUrl(region, userLocation), [region, userLocation]);
 
-  const projectPoint = useCallback(
-    (lat: number, lon: number) => {
-      const { w, h } = layout;
-      if (!w || !h) return null;
-      const { minLat, maxLat, minLon, maxLon } = bbox;
-      const denomLon = maxLon - minLon || 1;
-      const denomLat = maxLat - minLat || 1;
-      const x = ((lon - minLon) / denomLon) * w;
-      const y = ((maxLat - lat) / denomLat) * h;
-      if (Number.isNaN(x) || Number.isNaN(y)) return null;
-      return { x, y };
-    },
-    [bbox, layout]
-  );
+  const centerLat = userLocation?.latitude ?? region.latitude;
+  const centerLon = userLocation?.longitude ?? region.longitude;
+  const lonDelta = userLocation ? 0.03 : region.longitudeDelta ?? 0.05;
+
+  const view = useMemo(() => {
+    const { w, h } = layout;
+    if (!w || !h) return null;
+    const z = pickZoom(w, lonDelta);
+    const scale = TILE * Math.pow(2, z);
+    const n = Math.pow(2, z);
+    const cx = lonToWorldX(centerLon, scale);
+    const cy = latToWorldY(centerLat, scale);
+    const topLeftX = cx - w / 2;
+    const topLeftY = cy - h / 2;
+
+    // Тайлы, покрывающие вьюпорт
+    const tiles: { key: string; left: number; top: number; uri: string }[] = [];
+    const startTX = Math.floor(topLeftX / TILE);
+    const endTX = Math.floor((topLeftX + w) / TILE);
+    const startTY = Math.floor(topLeftY / TILE);
+    const endTY = Math.floor((topLeftY + h) / TILE);
+    for (let tx = startTX; tx <= endTX; tx++) {
+      for (let ty = startTY; ty <= endTY; ty++) {
+        if (ty < 0 || ty >= n) continue;
+        const wrappedX = ((tx % n) + n) % n;
+        tiles.push({
+          key: `${z}/${tx}/${ty}`,
+          left: tx * TILE - topLeftX,
+          top: ty * TILE - topLeftY,
+          uri: TILE_URL(z, wrappedX, ty),
+        });
+      }
+    }
+
+    const project = (lat: number, lon: number) => ({
+      x: lonToWorldX(lon, scale) - topLeftX,
+      y: latToWorldY(lat, scale) - topLeftY,
+    });
+
+    return { tiles, project };
+  }, [layout, centerLat, centerLon, lonDelta]);
 
   const projected = useMemo(() => {
-    return currentTrack
-      .map(([lat, lon]) => projectPoint(lat, lon))
-      .filter(Boolean) as { x: number; y: number }[];
-  }, [currentTrack, projectPoint]);
+    if (!view) return [];
+    return currentTrack.map(([lat, lon]) => view.project(lat, lon));
+  }, [view, currentTrack]);
 
   const userPin = useMemo(() => {
-    if (!userLocation) return null;
-    return projectPoint(userLocation.latitude, userLocation.longitude);
-  }, [userLocation, projectPoint]);
+    if (!view || !userLocation) return null;
+    return view.project(userLocation.latitude, userLocation.longitude);
+  }, [view, userLocation]);
 
   const locationLine = userLocation
     ? `GPS: ${userLocation.latitude.toFixed(5)}, ${userLocation.longitude.toFixed(5)}`
     : geoHint || 'Нажмите «Моё местоположение», чтобы показать вас на карте';
 
   return (
-    <View style={styles.root} onLayout={(e) => setLayout({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
-      {createElement('iframe', {
-        key: embedUrl,
-        src: embedUrl,
-        style: styles.iframe as object,
-        title: 'Карта территорий',
-        loading: 'lazy',
-        referrerPolicy: 'no-referrer-when-downgrade',
-      })}
+    <View
+      style={styles.root}
+      onLayout={(e) => setLayout({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
+      {/* Базослой из тайлов */}
+      <View style={styles.tileLayer} pointerEvents="none">
+        {view?.tiles.map((t) => (
+          <Image
+            key={t.key}
+            source={{ uri: t.uri }}
+            style={[styles.tile, { left: t.left, top: t.top }]}
+            resizeMode="cover"
+          />
+        ))}
+      </View>
+
+      {/* Маршрут */}
       {projected.length >= 1 ? (
         <View style={styles.trackOverlay} pointerEvents="none">
-          {projected.length >= 2 ? (
-            <Svg style={styles.svg} width="100%" height="100%">
-              <Polyline
-                points={projected.map((p) => `${p.x},${p.y}`).join(' ')}
-                stroke="#111111"
-                strokeWidth={3}
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {projected.map((p, idx) => (
-                <Circle key={idx} cx={p.x} cy={p.y} r={3} fill="#111111" />
-              ))}
-            </Svg>
-          ) : (
-            <Svg style={styles.svg} width="100%" height="100%">
-              <Circle cx={projected[0].x} cy={projected[0].y} r={4} fill="#111111" />
-            </Svg>
-          )}
-        </View>
-      ) : null}
-      {userPin ? (
-        <View style={styles.trackOverlay} pointerEvents="none">
           <Svg style={styles.svg} width="100%" height="100%">
-            <Circle cx={userPin.x} cy={userPin.y} r={10} fill="rgba(17,17,17,0.15)" />
-            <Circle cx={userPin.x} cy={userPin.y} r={5} fill="#111111" stroke="#FFFFFF" strokeWidth={2} />
+            {projected.length >= 2 ? (
+              <>
+                <Polyline
+                  points={projected.map((p) => `${p.x},${p.y}`).join(' ')}
+                  stroke="rgba(0,0,0,0.12)"
+                  strokeWidth={7}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <Polyline
+                  points={projected.map((p) => `${p.x},${p.y}`).join(' ')}
+                  stroke="#16181C"
+                  strokeWidth={3}
+                  strokeDasharray="2 8"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <Circle cx={projected[0].x} cy={projected[0].y} r={8} fill="#16181C" stroke="#FFFFFF" strokeWidth={3} />
+                <Circle cx={projected[0].x} cy={projected[0].y} r={3} fill="#C1FF00" />
+                <Circle
+                  cx={projected[projected.length - 1].x}
+                  cy={projected[projected.length - 1].y}
+                  r={10}
+                  fill="#16181C"
+                  stroke="#FFFFFF"
+                  strokeWidth={3}
+                />
+                <Circle
+                  cx={projected[projected.length - 1].x}
+                  cy={projected[projected.length - 1].y}
+                  r={4}
+                  fill="#C1FF00"
+                />
+              </>
+            ) : (
+              <>
+                <Circle cx={projected[0].x} cy={projected[0].y} r={8} fill="#16181C" stroke="#FFFFFF" strokeWidth={3} />
+                <Circle cx={projected[0].x} cy={projected[0].y} r={3} fill="#C1FF00" />
+              </>
+            )}
           </Svg>
         </View>
       ) : null}
-      <View style={styles.overlay} pointerEvents="box-none">
-        <Text style={styles.text}>Live Map</Text>
-        <Text style={styles.subText}>
-          Территорий: {mine.length} · Точек: {currentTrack.length}
-        </Text>
-        <Text style={styles.gpsText} numberOfLines={2}>
-          {locationLine}
-        </Text>
-        <View style={styles.btnRow}>
-          {onLocateMe ? (
-            <Pressable
-              onPress={onLocateMe}
-              disabled={locating}
-              style={[styles.linkBtn, styles.locateBtn, locating && styles.linkBtnDisabled]}>
-              <Text style={styles.linkText}>{locating ? 'Определяем…' : 'Моё местоположение'}</Text>
-            </Pressable>
-          ) : null}
-          <Pressable onPress={() => void Linking.openURL(openUrl)} style={styles.linkBtn}>
-            <Text style={styles.linkText}>Открыть карту</Text>
-          </Pressable>
+
+      {/* Текущее местоположение */}
+      {userPin ? (
+        <View style={styles.trackOverlay} pointerEvents="none">
+          <Svg style={styles.svg} width="100%" height="100%">
+            <Circle cx={userPin.x} cy={userPin.y} r={12} fill="rgba(193,255,0,0.25)" />
+            <Circle cx={userPin.x} cy={userPin.y} r={6} fill="#16181C" stroke="#FFFFFF" strokeWidth={2.5} />
+            <Circle cx={userPin.x} cy={userPin.y} r={2.5} fill="#C1FF00" />
+          </Svg>
         </View>
-      </View>
-      {!userPin ? (
+      ) : null}
+
+      {/* Атрибуция (требование CARTO/OSM) */}
+      <Text style={styles.attribution}>© OpenStreetMap, © CARTO</Text>
+
+      {/* Метка центра, если позиция ещё не определена */}
+      {!userPin && projected.length === 0 ? (
         <View style={styles.centerPin} pointerEvents="none">
           <View style={styles.centerPinInner} />
+        </View>
+      ) : null}
+
+      {/* Встроенные контролы (скрыты, когда их рисует родитель) */}
+      {!hideChrome ? (
+        <View style={styles.overlay} pointerEvents="box-none">
+          <Text style={styles.text}>Live Map</Text>
+          <Text style={styles.subText}>
+            Территорий: {mine.length} · Точек: {currentTrack.length}
+          </Text>
+          <Text style={styles.gpsText} numberOfLines={2}>
+            {locationLine}
+          </Text>
+          <View style={styles.btnRow}>
+            {onLocateMe ? (
+              <Pressable
+                onPress={onLocateMe}
+                disabled={locating}
+                style={[styles.linkBtn, styles.locateBtn, locating && styles.linkBtnDisabled]}>
+                <Text style={styles.linkText}>{locating ? 'Определяем…' : 'Моё местоположение'}</Text>
+              </Pressable>
+            ) : null}
+            <Pressable onPress={() => void Linking.openURL(openUrl)} style={styles.linkBtn}>
+              <Text style={styles.linkText}>Открыть карту</Text>
+            </Pressable>
+          </View>
         </View>
       ) : null}
     </View>
@@ -160,19 +224,23 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#f4f4f6',
   },
-  iframe: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    borderWidth: 0,
-    borderStyle: 'solid',
-  },
+  tileLayer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  tile: { position: 'absolute', width: TILE, height: TILE },
   trackOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   svg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  attribution: {
+    position: 'absolute',
+    right: 6,
+    top: 6,
+    fontSize: 9,
+    color: 'rgba(22,24,28,0.45)',
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
   overlay: {
     position: 'absolute',
     left: 10,
@@ -214,10 +282,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  centerPinInner: {
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-    backgroundColor: '#111111',
-  },
+  centerPinInner: { width: 9, height: 9, borderRadius: 4.5, backgroundColor: '#111111' },
 });

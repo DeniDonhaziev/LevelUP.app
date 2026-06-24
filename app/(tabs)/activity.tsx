@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { GroupedSection } from '@/components/ui/GroupedSection';
 import { HeroCard } from '@/components/ui/AppCard';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
-import { SectionTitle } from '@/components/ui/SectionTitle';
+import { TabScreenHeader } from '@/components/ui/TabScreenHeader';
 import { StatTile } from '@/components/ui/StatTile';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useAppTopic } from '@/hooks/useAppTopic';
@@ -90,7 +90,10 @@ export default function ActivityScreen() {
 
   return (
     <ScreenScroll>
-      <SectionTitle title="Прогресс" subtitle={`Momentum ${momentum}% · серия ${streak} дн.`} />
+      <TabScreenHeader
+        title="Прогресс"
+        subtitle={`Momentum ${momentum}% · серия ${streak} дн.`}
+      />
 
       <HeroCard>
         <Text style={{ color: c.muted, fontSize: 13, fontFamily: 'Inter_500Medium' }}>Текущая серия</Text>

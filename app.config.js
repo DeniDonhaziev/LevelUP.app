@@ -53,7 +53,9 @@ module.exports = {
     extra: {
       ...(appJson.expo.extra || {}),
       eas: {
-        projectId: '79d9a52a-8d0e-4284-b8a8-a608e52ef0a7',
+        ...(appJson.expo.extra?.eas || {}),
+        projectId:
+          appJson.expo.extra?.eas?.projectId ?? '79d9a52a-8d0e-4284-b8a8-a608e52ef0a7',
       },
       firebaseApiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY ?? '',
       firebaseAuthDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ?? '',

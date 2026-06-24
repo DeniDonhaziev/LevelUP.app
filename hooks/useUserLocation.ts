@@ -28,9 +28,7 @@ export function useUserLocation({ auto = true, watchOnWeb = true }: Options = {}
       return pt;
     }
     setGeoError(
-      Platform.OS === 'web'
-        ? 'Разрешите доступ к геолокации в браузере (значок замка в адресной строке).'
-        : 'Не удалось определить местоположение.'
+      'Не удалось определить геопозицию. Включите геолокацию на устройстве и разрешите доступ приложению, затем нажмите ещё раз.'
     );
     return null;
   }, []);
@@ -67,9 +65,10 @@ export function useUserLocation({ auto = true, watchOnWeb = true }: Options = {}
           setGeoError('');
         },
         () => {
-          setGeoError('Нет доступа к геолокации в браузере.');
+          // Молча — не показываем ошибку автоматически; подсказка появится только
+          // после явного нажатия кнопки «Показать мою геопозицию» (см. refresh()).
         },
-        { enableHighAccuracy: true, maximumAge: 3000, timeout: 20000 }
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
       );
 
       return () => {

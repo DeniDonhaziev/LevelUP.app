@@ -1,37 +1,26 @@
-# Деплой на https://tracker-mobile.expo.app/ с серверов GitHub (обход ECONNRESET с домашнего ПК).
-#
-# Один раз: Expo → Settings → Access tokens → Create → скопировать токен.
-# GitHub → репозиторий → Settings → Secrets → Actions → New secret → EXPO_TOKEN
-#
-# Запуск: Actions → Deploy Expo Web → Run workflow
-
-name: Deploy Expo Web
+name: Deploy to Expo Hosting
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 22
           cache: npm
-          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build web export
-        run: npm run export:web
-        env:
-          EXPO_NO_TELEMETRY: '1'
-
-      - name: Deploy to production (tracker-mobile.expo.app)
-        run: npx eas-cli deploy --prod --non-interactive
+      - name: Deploy to tracker-mobile.expo.app
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npm run deploy:expo

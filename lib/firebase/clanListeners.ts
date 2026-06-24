@@ -19,6 +19,18 @@ let detachLeaderboard: Unsubscribe | null = null;
 let lastChatIds = new Set<string>();
 let chatListenerClanId: string | null = null;
 
+function restoreClanIdFromLocalCache(firebaseUid: string, username: string): string | null {
+  const store = useTrackerStore.getState();
+  for (const [cid, members] of Object.entries(store.clanMembersByClanId)) {
+    const isMember = members.some((m) => m.uid === firebaseUid || m.username === username);
+    if (!isMember) continue;
+    const data = store.getUserData(username);
+    store.setUserData(username, { ...data, clanId: cid });
+    return cid;
+  }
+  return null;
+}
+
 function mergeClansIntoStore(clans: Clan[]) {
   useTrackerStore.setState((s) => {
     let changed = false;
@@ -59,7 +71,10 @@ export async function pullClansFromCloud(): Promise<void> {
 
   startClanLeaderboardListener();
 
-  const clanId = store.getClanId();
+  let clanId = store.getClanId();
+  if (!clanId) {
+    clanId = restoreClanIdFromLocalCache(firebaseUid, username);
+  }
   if (!clanId) {
     store.refreshClanState();
     return;

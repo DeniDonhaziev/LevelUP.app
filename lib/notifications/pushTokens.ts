@@ -3,7 +3,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { doc, setDoc } from 'firebase/firestore';
 
-import { updateClanMemberExpoPushToken } from '@/lib/firebase/clanSync';
+import { updateClanMemberPushTokens } from '@/lib/firebase/clanSync';
 import { Platform } from 'react-native';
 
 import { getDb } from '@/lib/firebase/app';
@@ -41,12 +41,38 @@ async function saveToken(
     platform,
     updatedAt: Date.now(),
   });
-  if (clanId && token.startsWith('ExponentPushToken[')) {
+  if (!clanId) return;
+  if (token.startsWith('ExponentPushToken[')) {
     try {
-      await updateClanMemberExpoPushToken(clanId, uid, token);
+      await updateClanMemberPushTokens(clanId, uid, { expoPushToken: token });
     } catch (e) {
       console.warn('sync expo token to clan member:', e);
     }
+    return;
+  }
+  try {
+    await updateClanMemberPushTokens(clanId, uid, { fcmPushToken: token });
+  } catch (e) {
+    console.warn('sync fcm token to clan member:', e);
+  }
+}
+
+async function ensureExpoPushToken(uid: string, clanId?: string | null): Promise<string | null> {
+  try {
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
+    if (!projectId) return null;
+    const vapidKey = getFirebaseExtra()?.firebaseVapidKey?.trim() || DEFAULT_VAPID_PUBLIC_KEY;
+    const result = await Notifications.getExpoPushTokenAsync({
+      projectId,
+      ...(Platform.OS === 'web' ? { web: { vapidPublicKey: vapidKey } } : {}),
+    });
+    const token = result.data;
+    if (!token?.startsWith('ExponentPushToken[')) return null;
+    await saveToken(uid, token, Platform.OS === 'web' ? 'web-expo' : `${Platform.OS}-expo`, clanId);
+    return token;
+  } catch (e) {
+    console.warn('ensureExpoPushToken:', e);
+    return null;
   }
 }
 
@@ -107,7 +133,10 @@ export async function registerPushToken(
     if (vapidKey) {
       try {
         const { registerWebPushToken } = await import('@/lib/firebase/messaging.web');
-        if (await registerWebPushToken(uid)) return { ok: true, mode: 'fcm' };
+        if (await registerWebPushToken(uid, clanId)) {
+          await ensureExpoPushToken(uid, clanId);
+          return { ok: true, mode: 'fcm' };
+        }
       } catch (e) {
         console.warn('registerWebPushToken:', e);
       }
@@ -136,6 +165,11 @@ export async function registerPushToken(
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 120, 250],
     });
+    await Notifications.setNotificationChannelAsync('run-motivation', {
+      name: 'Мотивация к бегу',
+      importance: Notifications.AndroidImportance.DEFAULT,
+      vibrationPattern: [0, 180, 80, 180],
+    });
   }
 
   try {
@@ -143,6 +177,7 @@ export async function registerPushToken(
     const token = tokenResult.data;
     if (!token) return { ok: false, reason: 'no_token' };
     await saveToken(uid, token, Platform.OS, clanId);
+    await ensureExpoPushToken(uid, clanId);
     return { ok: true, mode: 'native' };
   } catch (e) {
     console.warn('registerPushToken native:', e);

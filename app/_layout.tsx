@@ -1,22 +1,21 @@
-/** Только подпакеты — не barrel index.js (он тянет все .ttf и ломает Metro/Web на части весов). */
-import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
-import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
-import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
-import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import { Text, TextInput } from 'react-native';
+import { useEffect, useMemo } from 'react';
+import { Platform, Text, TextInput } from 'react-native';
 import 'react-native-reanimated';
+
+import '@/lib/configureWebIcons';
+import { useWebIconsReady } from '@/lib/configureWebIcons';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { isFirebaseConfigured } from '@/lib/firebase/config';
+import { flushPendingUserSave, flushSaveUser } from '@/lib/firebase/debouncedSave';
 import { subscribeToAuthChanges } from '@/lib/firebase/authFlow';
-import { ensureNotificationPermission } from '@/lib/notifications/clanChat';
-import { registerPushToken } from '@/lib/notifications/pushTokens';
+import { refreshFcmTokenIfPermitted, setupFcmNotificationHandlers } from '@/lib/notifications/fcm';
+import { syncMotivationSchedule } from '@/lib/notifications/runMotivation';
 import { DEFAULT_TOPIC_ID } from '@/lib/topics';
 import { useTrackerStore } from '@/store/trackerStore';
 
@@ -50,24 +49,42 @@ const navLight = {
   },
 };
 
-export default function RootLayout() {
-  const [loaded, error] = useFonts({
+function getNativeFontMap() {
+  const { Inter_400Regular } = require('@expo-google-fonts/inter/400Regular');
+  const { Inter_500Medium } = require('@expo-google-fonts/inter/500Medium');
+  const { Inter_600SemiBold } = require('@expo-google-fonts/inter/600SemiBold');
+  const { Inter_700Bold } = require('@expo-google-fonts/inter/700Bold');
+  return {
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
-  });
+  };
+}
+
+export default function RootLayout() {
+  const isWeb = Platform.OS === 'web';
+  const iconsReady = useWebIconsReady();
+  const nativeFonts = useMemo(() => (isWeb ? {} : getNativeFontMap()), [isWeb]);
+  const [loaded, error] = useFonts(nativeFonts);
+
+  const fontsReady = (isWeb || loaded) && iconsReady;
 
   useEffect(() => {
-    if (error) throw error;
-  }, [error]);
+    if (!error) return;
+    if (isWeb) {
+      console.warn('[fonts] web fallback:', error.message);
+      return;
+    }
+    throw error;
+  }, [error, isWeb]);
 
   useEffect(() => {
-    if (loaded) SplashScreen.hideAsync();
-  }, [loaded]);
+    if (fontsReady) SplashScreen.hideAsync();
+  }, [fontsReady]);
 
   useEffect(() => {
-    if (!loaded) return;
+    if (!fontsReady) return;
     const T = Text as unknown as { defaultProps?: { style?: unknown } };
     T.defaultProps = T.defaultProps ?? {};
     const prev = T.defaultProps.style;
@@ -77,9 +94,9 @@ export default function RootLayout() {
     TI.defaultProps = TI.defaultProps ?? {};
     const prevI = TI.defaultProps.style;
     TI.defaultProps.style = [prevI, { fontFamily: 'Inter_400Regular' }];
-  }, [loaded]);
+  }, [fontsReady]);
 
-  if (!loaded) return null;
+  if (!fontsReady) return null;
 
   return <RootLayoutNav />;
 }
@@ -106,13 +123,42 @@ function RootLayoutNav() {
   const firebaseUid = useTrackerStore((s) => s.firebaseUid);
 
   useEffect(() => {
-    if (!authReady || !currentUser) return;
-    const topicId = useTrackerStore.getState().userTopics[currentUser] ?? DEFAULT_TOPIC_ID;
-    if (topicId !== 'sport') return;
+    return setupFcmNotificationHandlers();
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const persistOnHide = () => {
+      void flushPendingUserSave();
+      const st = useTrackerStore.getState();
+      if (st.firebaseUid && st.currentUser) {
+        void flushSaveUser(
+          st.firebaseUid,
+          st.currentUser,
+          st.getUserData(st.currentUser),
+          st.profilePhotoURL,
+          st.getTopicId(st.currentUser)
+        );
+      }
+    };
+    window.addEventListener('beforeunload', persistOnHide);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') persistOnHide();
+    });
+    return () => {
+      window.removeEventListener('beforeunload', persistOnHide);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authReady || !currentUser || !firebaseUid) return;
     void (async () => {
-      if (!(await ensureNotificationPermission()) || !firebaseUid) return;
-      const clanId = useTrackerStore.getState().getClanId();
-      await registerPushToken(firebaseUid, clanId);
+      const st = useTrackerStore.getState();
+      await refreshFcmTokenIfPermitted(firebaseUid, st.getClanId());
+      const topicId = st.userTopics[currentUser] ?? DEFAULT_TOPIC_ID;
+      if (topicId === 'sport') {
+        await syncMotivationSchedule(currentUser, st.runHistory);
+      }
     })();
   }, [authReady, currentUser, firebaseUid]);
 
@@ -124,6 +170,7 @@ function RootLayoutNav() {
         }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>

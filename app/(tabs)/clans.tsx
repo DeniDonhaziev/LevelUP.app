@@ -11,11 +11,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { ClanChat } from '@/components/clans/ClanChat';
 import { AppInput } from '@/components/ui/AppInput';
 import { GroupedSection } from '@/components/ui/GroupedSection';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
-import { SectionTitle } from '@/components/ui/SectionTitle';
+import { TabScreenHeader } from '@/components/ui/TabScreenHeader';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -26,10 +27,6 @@ import {
   startClanChatListener,
   stopClanChatListener,
 } from '@/lib/firebase/clanListeners';
-import {
-  getNotificationPermissionState,
-  requestNotificationPermissionFromUser,
-} from '@/lib/notifications/clanChat';
 import { registerPushToken } from '@/lib/notifications/pushTokens';
 import type { Clan, ClanMember, ClanMessage } from '@/lib/types';
 import { formatLength } from '@/lib/trackerLogic';
@@ -71,17 +68,10 @@ export default function ClansScreen() {
   const [tab, setTab] = useState<TabKey>(clanId ? 'clan' : 'top');
   const [clanName, setClanName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
-  const [chatText, setChatText] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [pushEnabled, setPushEnabled] = useState<boolean | null>(null);
-  const [pushBusy, setPushBusy] = useState(false);
-  const [pushError, setPushError] = useState('');
   const pageScrollRef = useRef<ScrollView>(null);
-  const chatMessagesRef = useRef<ScrollView>(null);
-  const lastMessageId =
-    clanMessages.length > 0 ? clanMessages[clanMessages.length - 1]?.id : null;
 
   const clan = activeClan ?? (clanId ? clansById[clanId] : null);
   const membersSorted: ClanMember[] = sortClanMembers(clanMembers);
@@ -121,77 +111,11 @@ export default function ClansScreen() {
     if (!clanId) return;
     if (isFirebaseConfigured() && firebaseUid) {
       startClanChatListener(clanId);
+      void registerPushToken(firebaseUid, clanId);
       return () => stopClanChatListener();
     }
     return undefined;
   }, [clanId, firebaseUid]);
-
-  useEffect(() => {
-    if (!firebaseUid || !isFirebaseConfigured()) return;
-    const state = getNotificationPermissionState();
-    setPushEnabled(state === 'granted');
-    if (state === 'denied') {
-      setPushError('Уведомления заблокированы в настройках браузера. Разрешите их для этого сайта.');
-    }
-  }, [firebaseUid, clanId]);
-
-  async function enablePushNotifications() {
-    if (!firebaseUid || pushBusy) return;
-    setPushError('');
-    setPushBusy(true);
-    try {
-      const state = getNotificationPermissionState();
-      if (state === 'unsupported') {
-        setPushError('Браузер не поддерживает уведомления. Откройте сайт в Chrome или Safari.');
-        setPushEnabled(false);
-        return;
-      }
-      if (state === 'denied') {
-        setPushError(
-          'Уведомления отключены. В Chrome: замок слева от адреса → Уведомления → Разрешить. Затем обновите страницу.'
-        );
-        setPushEnabled(false);
-        return;
-      }
-
-      const ok = await requestNotificationPermissionFromUser();
-      if (!ok) {
-        const after = getNotificationPermissionState();
-        if (after === 'denied') {
-          setPushError('Вы отклонили уведомления. Разрешите их в настройках браузера для этого сайта.');
-        } else {
-          setPushError('Нажмите «Разрешить» в окне браузера, когда оно появится.');
-        }
-        setPushEnabled(false);
-        return;
-      }
-
-      const result = await registerPushToken(firebaseUid, clanId);
-      if (result.ok) {
-        setPushEnabled(true);
-        setPushError('');
-        void refreshFromCloud();
-      } else if (result.reason === 'no_token') {
-        setPushError(
-          'Не удалось подключить push. Обновите страницу (Ctrl+Shift+R), снова нажмите «Включить». На iPhone — откройте сайт с иконки на рабочем столе.'
-        );
-        setPushEnabled(false);
-      } else {
-        setPushError('Не удалось подключить push. Обновите страницу и попробуйте снова.');
-        setPushEnabled(false);
-      }
-    } finally {
-      setPushBusy(false);
-    }
-  }
-
-  useEffect(() => {
-    if (!lastMessageId) return;
-    const t = setTimeout(() => {
-      chatMessagesRef.current?.scrollToEnd({ animated: true });
-    }, 50);
-    return () => clearTimeout(t);
-  }, [lastMessageId, clanMessages.length]);
 
   async function onCreate() {
     setError('');
@@ -226,27 +150,13 @@ export default function ClansScreen() {
     else setTab('top');
   }
 
-  async function onSend() {
-    if (!chatText.trim()) return;
-    setError('');
-    const err = await sendClanMessage(chatText);
-    if (err) setError(err);
-    else {
-      setChatText('');
-      setTimeout(() => chatMessagesRef.current?.scrollToEnd({ animated: true }), 30);
-    }
+  async function onSendMessage(text: string) {
+    return sendClanMessage(text);
   }
-
-  const clansSubtitle =
-    isFirebaseConfigured() && firebaseUid
-      ? 'Облачный режим: кланы, чат и топ видны всем пользователям с любого устройства после входа по email.'
-      : isFirebaseConfigured()
-        ? 'Войдите по email (регистрация в приложении), чтобы кланы синхронизировались между устройствами.'
-        : 'Общий список для всех аккаунтов на этом устройстве. Километры считаются с пробежек.';
 
   return (
     <ScreenScroll ref={pageScrollRef} keyboardShouldPersistTaps="handled">
-        <SectionTitle title="Кланы" subtitle={clansSubtitle} />
+        <TabScreenHeader title="Кланы" subtitle="Чат, рейтинг и командный дух" />
 
         {isFirebaseConfigured() && !firebaseUid ? (
           <View style={[styles.card, { backgroundColor: cardBg, borderColor: c.border, marginBottom: 12 }]}>
@@ -407,97 +317,11 @@ export default function ClansScreen() {
               ))}
             </View>
 
-            {pushEnabled !== true && isFirebaseConfigured() && firebaseUid ? (
-              <Pressable
-                disabled={pushBusy}
-                onPress={() => void enablePushNotifications()}
-                style={({ pressed }) => [
-                  styles.pushBanner,
-                  {
-                    backgroundColor: c.accent + '18',
-                    borderColor: c.accent,
-                    opacity: pushBusy ? 0.6 : pressed ? 0.85 : 1,
-                  },
-                ]}>
-                {pushBusy ? (
-                  <ActivityIndicator color={c.accent} />
-                ) : (
-                  <Ionicons name="notifications-outline" size={22} color={c.accent} />
-                )}
-                <View style={styles.pushBannerText}>
-                  <Text style={[styles.pushBannerTitle, { color: c.text }]}>
-                    {pushBusy ? 'Подключение…' : 'Включить уведомления'}
-                  </Text>
-                  <Text style={[styles.pushBannerSub, { color: c.muted }]}>
-                    Сообщения на телефон, когда приложение закрыто
-                  </Text>
-                </View>
-              </Pressable>
-            ) : null}
-            {pushError ? <Text style={styles.pushError}>{pushError}</Text> : null}
-
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor: c.border }]}>
-              <Text style={[styles.section, { color: c.text }]}>Чат клана</Text>
-              <View style={[styles.chatBox, { borderColor: c.border }]}>
-                <ScrollView
-                  ref={chatMessagesRef}
-                  style={styles.chatScroll}
-                  contentContainerStyle={styles.chatScrollContent}
-                  keyboardShouldPersistTaps="handled"
-                  nestedScrollEnabled>
-                  {clanMessages.length === 0 ? (
-                    <Text style={{ color: c.muted, fontSize: 14, textAlign: 'center', marginTop: 12 }}>
-                      Нет сообщений. Напишите первым.
-                    </Text>
-                  ) : (
-                    clanMessages.map((msg) => {
-                      const mine = msg.username === currentUser;
-                      return (
-                        <View key={msg.id} style={[styles.bubbleRow, mine && styles.bubbleRowMine]}>
-                          <View
-                            style={[
-                              styles.bubble,
-                              { maxWidth: bubbleMaxWidth },
-                              mine
-                                ? { backgroundColor: c.accent + '18' }
-                                : { backgroundColor: scheme === 'dark' ? '#2a2a2e' : '#F3F4F6' },
-                            ]}>
-                            <Text numberOfLines={1} style={[styles.bubbleUser, { color: c.muted }]}>
-                              {msg.username}
-                            </Text>
-                            <Text style={[styles.bubbleText, { color: c.text }]}>{msg.text}</Text>
-                          </View>
-                        </View>
-                      );
-                    })
-                  )}
-                </ScrollView>
-              </View>
-              <View style={styles.chatInputRow}>
-                <AppInput
-                  style={styles.chatInput}
-                  placeholder="Введите сообщение…"
-                  value={chatText}
-                  onChangeText={setChatText}
-                  onSubmitEditing={() => void onSend()}
-                  multiline
-                />
-                <Pressable
-                  onPress={() => void onSend()}
-                  disabled={!chatText.trim()}
-                  style={({ pressed }) => [
-                    styles.sendBtn,
-                    {
-                      backgroundColor: c.accentSoft,
-                      borderWidth: 1,
-                      borderColor: c.accent,
-                      opacity: !chatText.trim() ? 0.5 : pressed ? 0.85 : 1,
-                    },
-                  ]}>
-                  <Text style={[styles.sendBtnText, { color: c.text }]}>Отправить</Text>
-                </Pressable>
-              </View>
-            </View>
+            <ClanChat
+              messages={clanMessages}
+              onSend={onSendMessage}
+              bubbleMaxWidth={bubbleMaxWidth}
+            />
           </>
         ) : null}
 

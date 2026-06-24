@@ -34,12 +34,13 @@ const styles = StyleSheet.create({
   tile: {
     flex: 1,
     minWidth: 0,
-    borderRadius: WebTheme.radius,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    borderRadius: WebTheme.radiusLg,
+    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     alignItems: 'center',
     gap: 4,
+    ...WebTheme.shadowSoft,
   },
   iconWrap: {
     width: 28,

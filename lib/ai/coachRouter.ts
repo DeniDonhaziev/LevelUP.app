@@ -35,10 +35,11 @@ export function canAnalyzeFoodPhoto(): boolean {
 export async function coachChat(
   messages: ChatMessage[],
   goal: BodyGoal,
-  topicId: TopicId = 'sport'
+  topicId: TopicId = 'sport',
+  profileContext?: string
 ): Promise<string> {
   requireOpenRouter();
-  return openrouterCoachChat(messages, goal, topicId);
+  return openrouterCoachChat(messages, goal, topicId, profileContext);
 }
 
 export async function analyzeFoodDescription(

@@ -1,112 +1,85 @@
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const functions = require('firebase-functions/v1');
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
-const { getMessaging } = require('firebase-admin/messaging');
+const { DEFAULT_TIMEZONE } = require('./push/config');
+const { broadcastPushToAll } = require('./push/send');
+const { onClanMessageCreatedHandler } = require('./triggers/clanMessage');
+const { onClanMemberCreatedHandler } = require('./triggers/clanMember');
+const { onRunnerStatWrittenHandler } = require('./triggers/runnerStat');
+const { runDailyNotifications } = require('./scheduled/daily');
+const {
+  runRetentionNotifications,
+  runClanRankingNotifications,
+} = require('./scheduled/retention');
 
 initializeApp();
 
-const PRODUCTION_URL = 'https://tracker-mobile.expo.app/';
+/** Чат клана → FCM + Expo (WhatsApp-режим, сервер шлёт push). */
+exports.onClanMessageCreated = functions.firestore
+  .document('clans/{clanId}/messages/{messageId}')
+  .onCreate(onClanMessageCreatedHandler);
 
-async function sendExpoPush(tokens, title, body) {
-  const messages = tokens.map((to) => ({
-    to,
-    title,
-    body,
-    sound: 'default',
-    priority: 'high',
-    channelId: 'clan-chat',
-  }));
-  const res = await fetch('https://exp.host/--/api/v2/push/send', {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(messages),
+/** Новый участник клуба. */
+exports.onClanMemberCreated = functions.firestore
+  .document('clans/{clanId}/members/{memberId}')
+  .onCreate(onClanMemberCreatedHandler);
+
+/** Спортивные цели и достижения клуба. */
+exports.onRunnerStatUpdated = functions.firestore
+  .document('runnerStats/{uid}')
+  .onWrite(onRunnerStatWrittenHandler);
+
+/** Ежедневные: цели, привычки, серия, пробежки, AI, статистика. */
+exports.dailyNotifications = functions.pubsub
+  .schedule('0 * * * *')
+  .timeZone(DEFAULT_TIMEZONE)
+  .onRun(async () => {
+    await runDailyNotifications();
   });
-  if (!res.ok) {
-    const text = await res.text();
-    console.warn('Expo push failed:', res.status, text);
+
+/** Удержание: 2 дня, неделя без активности, невыполненные цели. */
+exports.retentionNotifications = functions.pubsub
+  .schedule('0 11 * * *')
+  .timeZone(DEFAULT_TIMEZONE)
+  .onRun(async () => {
+    await runRetentionNotifications();
+  });
+
+/** Рейтинг клубов (ТОП-10). */
+exports.clanRankingNotifications = functions.pubsub
+  .schedule('0 12 * * 1')
+  .timeZone(DEFAULT_TIMEZONE)
+  .onRun(async () => {
+    await runClanRankingNotifications();
+  });
+
+/** Массовая рассылка (admin). */
+exports.broadcastPush = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST, GET');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, x-broadcast-key');
+    res.status(204).send('');
+    return;
   }
-}
 
-/** Push when a new clan chat message is created (FCM + Expo push tokens in users/{uid}/pushTokens). */
-exports.onClanMessageCreated = onDocumentCreated(
-  'clans/{clanId}/messages/{messageId}',
-  async (event) => {
-    const snap = event.data;
-    if (!snap) return;
-    const msg = snap.data();
-    const clanId = event.params.clanId;
-    const senderUid = msg.uid;
-    const senderName = msg.username || 'Участник';
-    const text = (msg.text || '').slice(0, 180);
-
-    const db = getFirestore();
-    const membersSnap = await db.collection('clans').doc(clanId).collection('members').get();
-    const fcmTokens = [];
-    const expoTokens = [];
-
-    for (const memberDoc of membersSnap.docs) {
-      const uid = memberDoc.id;
-      if (uid === senderUid) continue;
-      const tokSnap = await db.collection('users').doc(uid).collection('pushTokens').get();
-      tokSnap.forEach((t) => {
-        const token = t.data().token;
-        if (!token) return;
-        if (token.startsWith('ExponentPushToken[')) expoTokens.push(token);
-        else fcmTokens.push(token);
-      });
-    }
-
-    const title = `Клан · ${senderName}`;
-    const body = text || 'Новое сообщение';
-
-    if (!fcmTokens.length && !expoTokens.length) {
-      console.warn('onClanMessageCreated: нет push-токенов у участников клана', clanId);
-      return;
-    }
-
-    if (fcmTokens.length) {
-      const res = await getMessaging().sendEachForMulticast({
-        tokens: fcmTokens,
-        notification: { title, body },
-        data: {
-          type: 'clan-chat',
-          clanId,
-          senderUid: senderUid || '',
-        },
-        webpush: {
-          notification: {
-            title,
-            body,
-            icon: `${PRODUCTION_URL}icon-192.png`,
-            badge: `${PRODUCTION_URL}icon-192.png`,
-            tag: 'clan-chat',
-          },
-          fcmOptions: { link: PRODUCTION_URL },
-        },
-        android: {
-          priority: 'high',
-          notification: { channelId: 'clan-chat', sound: 'default' },
-        },
-        apns: {
-          payload: { aps: { sound: 'default', badge: 1 } },
-        },
-      });
-      console.log(
-        'FCM push:',
-        res.successCount,
-        'ok,',
-        res.failureCount,
-        'fail, tokens:',
-        fcmTokens.length
-      );
-    }
-
-    if (expoTokens.length) {
-      await sendExpoPush(expoTokens, title, body);
-      console.log('Expo push sent to', expoTokens.length, 'devices');
-    }
+  const key = req.headers['x-broadcast-key'] || req.query.key;
+  const expected =
+    process.env.BROADCAST_KEY ||
+    process.env.FUNCTIONS_BROADCAST_KEY ||
+    'levelup-broadcast-2026';
+  if (key !== expected) {
+    res.status(403).json({ error: 'forbidden' });
+    return;
   }
-);
+
+  const title = (req.body?.title || req.query.title || 'LevelUp').slice(0, 120);
+  const body = (req.body?.body || req.query.body || '').slice(0, 240);
+
+  try {
+    const result = await broadcastPushToAll(title, body);
+    res.json({ ok: true, title, body, ...result });
+  } catch (e) {
+    console.error('broadcastPush:', e);
+    res.status(500).json({ error: e.message || String(e) });
+  }
+});

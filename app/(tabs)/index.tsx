@@ -1,24 +1,20 @@
 import { useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TextInput,
   Pressable,
-  Image,
   Platform,
   useWindowDimensions,
 } from 'react-native';
 
 import { ActivityTaskRow } from '@/components/ActivityTaskRow';
-import { RingProgress } from '@/components/RingProgress';
+import { HomeHero } from '@/components/home/HomeHero';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useAppTopic } from '@/hooks/useAppTopic';
-import { confirmDelete } from '@/lib/confirmAction';
 import { MONTHS_RU, MONTHS_SHORT_RU, todayKey } from '@/lib/date';
 import { buildCalendarCells, monthAchievementStats } from '@/lib/calendarUi';
 import {
@@ -27,10 +23,8 @@ import {
   getMomentumPercent,
   isDayMarkedAchievement,
 } from '@/lib/trackerLogic';
-import { selectAvatarDisplayUri, useTrackerStore, useUserData } from '@/store/trackerStore';
-import { useDevicePedometer } from '@/hooks/useDevicePedometer';
+import { useTrackerStore, useUserData } from '@/store/trackerStore';
 import { WebTheme } from '@/lib/theme';
-import { HeroCard } from '@/components/ui/AppCard';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 
@@ -39,8 +33,6 @@ export default function HomeScreen() {
   const isDesktopWeb = Platform.OS === 'web' && width >= 1100;
   const c = useThemeColors();
   const topic = useAppTopic();
-  const user = useTrackerStore((s) => s.currentUser);
-  const avatarDisplayUri = useTrackerStore((s) => selectAvatarDisplayUri(s));
   const data = useUserData();
   const syncNewDay = useTrackerStore((s) => s.syncNewDay);
   const addTaskByName = useTrackerStore((s) => s.addTaskByName);
@@ -55,8 +47,6 @@ export default function HomeScreen() {
   const [viewMonth, setViewMonth] = useState(() => new Date().getMonth());
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
   const entrance = useRef(new Animated.Value(0)).current;
-
-  const { active: pedoActive, toggle: togglePedo } = useDevicePedometer();
 
   useFocusEffect(
     useCallback(() => {
@@ -76,19 +66,17 @@ export default function HomeScreen() {
 
   const doneToday = data ? (data.dailyDone[today] || []).length : 0;
   const totalTasks = data?.tasks?.length ?? 0;
-  const statLeft = Math.max(0, totalTasks - doneToday);
 
   const todayBadge = `${now.getDate()} ${MONTHS_SHORT_RU[now.getMonth()]} ${now.getFullYear()}`;
   const allTasks = data?.tasks || [];
   const border = c.border;
-  const cardBg = c.card;
   const hoverBg = c.cardHover;
   const taskRowPalette = {
     text: c.text,
     muted: c.muted,
     border,
-    cardBg,
-    accentDone: topic.tabActive,
+    cardBg: c.card,
+    accentDone: c.accent,
   };
 
   const calendarCells = useMemo(() => {
@@ -109,28 +97,6 @@ export default function HomeScreen() {
     if (allDone) return 'Все задачи выполнены. День можно отметить как прошедший удачно.';
     return `Сделано: ${doneToday} из ${totalTasks}. Можете отметить день как прошедший удачно.`;
   }
-
-  const datePills = useMemo(() => {
-    const out: { label: string; sub: string; iso: string }[] = [];
-    const base = new Date();
-    const weekdays = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-    for (let i = 0; i <= 6; i++) {
-      const d = new Date(base);
-      d.setDate(base.getDate() + i);
-      const iso =
-        d.getFullYear() +
-        '-' +
-        String(d.getMonth() + 1).padStart(2, '0') +
-        '-' +
-        String(d.getDate()).padStart(2, '0');
-      out.push({
-        label: String(d.getDate()),
-        sub: weekdays[d.getDay()],
-        iso,
-      });
-    }
-    return out;
-  }, []);
 
   useEffect(() => {
     Animated.timing(entrance, {
@@ -154,199 +120,19 @@ export default function HomeScreen() {
             },
           ],
         }}>
-      <SectionTitle
-        title="LevelUp"
-        subtitle={`Синхронизация ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`}
+      <HomeHero
+        data={data}
+        streak={streak}
+        momentum={momentum}
+        monthProgressPct={monthProgressPct}
+        doneToday={doneToday}
+        totalTasks={totalTasks}
+        achievedDays={achievedDays}
       />
-      <View style={[styles.topActionsRow, { backgroundColor: c.cardElevated, borderColor: c.border }]}>
-        <View style={[styles.todayChip, { backgroundColor: c.accentSoft, borderColor: c.border }]}>
-          <Ionicons name="calendar-outline" size={16} color={c.text} />
-          <Text style={[styles.todayChipText, { color: c.text }]}>Сегодня</Text>
-          <Ionicons name="chevron-down" size={14} color={c.muted} />
-        </View>
-        <View style={styles.headerRight}>
-          <View style={[styles.streakBadge, { backgroundColor: c.card, borderColor: c.border }]}>
-            <Text style={styles.streakBadgeIcon}>🔥</Text>
-            <Text style={[styles.streakBadgeText, { color: c.text }]}>{streak}</Text>
-          </View>
-          <View style={[styles.avatar, { backgroundColor: c.cardElevated, borderColor: c.border }]}>
-            {avatarDisplayUri ? (
-              <Image source={{ uri: avatarDisplayUri }} style={styles.avatarImage} resizeMode="cover" />
-            ) : (
-              <Text style={[styles.avatarText, { color: c.text }]}>{(user || '?').charAt(0).toUpperCase()}</Text>
-            )}
-          </View>
-        </View>
-      </View>
 
-      <View
-        style={[
-          styles.desktopBoard,
-          isDesktopWeb && styles.desktopBoardOn,
-          !isDesktopWeb && styles.desktopBoardMobile,
-        ]}>
-        <View style={[styles.desktopCenter, isDesktopWeb && styles.desktopCenterOn]}>
-          {isDesktopWeb ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsRow} contentContainerStyle={styles.pillsContent}>
-              {datePills.map((p, i) => {
-                const active = i === 0;
-                return (
-                  <View
-                    key={p.iso}
-                    style={[
-                      styles.pill,
-                      active
-                        ? { backgroundColor: c.accentSoft, borderColor: c.accent, borderWidth: 2 }
-                        : { backgroundColor: c.cardElevated, borderColor: border },
-                      active && styles.pillActive,
-                    ]}>
-                    <Text style={[styles.pillDay, { color: c.text }]}>{p.label}</Text>
-                    <Text style={{ color: c.muted, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>
-                      {p.sub}
-                    </Text>
-                  </View>
-                );
-              })}
-            </ScrollView>
-          ) : (
-            <View style={[styles.pillsRow, styles.pillsWrap]}>
-              {datePills.map((p, i) => {
-                const active = i === 0;
-                return (
-                  <View
-                    key={p.iso}
-                    style={[
-                      styles.pill,
-                      active
-                        ? { backgroundColor: c.accentSoft, borderColor: c.accent, borderWidth: 2 }
-                        : { backgroundColor: c.cardElevated, borderColor: border },
-                      active && styles.pillActive,
-                    ]}>
-                    <Text style={[styles.pillDay, { color: c.text }]}>{p.label}</Text>
-                    <Text style={{ color: c.muted, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>
-                      {p.sub}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-
-          <View style={[styles.overviewRow, isDesktopWeb && styles.overviewRowDesktop]}>
-            <View style={[styles.overviewMain, isDesktopWeb && styles.overviewMainDesktop]}>
-              <HeroCard>
-                <View style={styles.heroHeader}>
-                  <Text style={[styles.cardEyebrow, { color: c.text }]}>Прогресс месяца</Text>
-                  <View style={[styles.liveDot, { backgroundColor: c.accent }]} />
-                </View>
-                <View style={styles.ringSection}>
-                  <View style={styles.ringCenterRow}>
-                    <View style={styles.ringWrap}>
-                      <RingProgress
-                        progress={ringPct}
-                        startAngleDeg={0}
-                        size={152}
-                        strokeWidth={16}
-                        trackColor="rgba(148,163,184,0.18)"
-                        centerColor="transparent"
-                        color={c.accent}
-                        centerTitle={String(monthProgressPct)}
-                        centerSubtitle="%"
-                      />
-                    </View>
-                  </View>
-                  <View style={styles.heroStats}>
-                    <Text style={{ color: c.muted, fontSize: 14, fontFamily: 'Inter_600SemiBold', textAlign: 'center' }}>
-                      Выполнено сегодня
-                    </Text>
-                    <Text style={{ color: c.text, marginTop: 8, fontSize: 14, textAlign: 'center', fontFamily: 'Inter_600SemiBold' }}>
-                      {doneToday}/{totalTasks || 0} задач
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.macroRow}>
-                  <View style={[styles.macroCard, { borderColor: c.border, backgroundColor: c.cardElevated }]}>
-                    <Text style={[styles.macroLabel, { color: c.muted }]}>Фокус</Text>
-                    <Text style={[styles.macroValue, { color: c.accent }]}>{momentum}%</Text>
-                  </View>
-                  <View style={[styles.macroCard, { borderColor: c.border, backgroundColor: c.cardElevated }]}>
-                    <Text style={[styles.macroLabel, { color: c.muted }]}>Серия</Text>
-                    <Text style={[styles.macroValue, { color: c.text }]}>{streak}</Text>
-                  </View>
-                  <View style={[styles.macroCard, { borderColor: c.border, backgroundColor: c.cardElevated }]}>
-                    <Text style={[styles.macroLabel, { color: c.muted }]}>Шаги</Text>
-                    <Text style={[styles.macroValue, { color: c.text }]}>{getStepsToday().toLocaleString('ru')}</Text>
-                  </View>
-                </View>
-              </HeroCard>
-            </View>
-          </View>
-        </View>
-
-        {isDesktopWeb ? (
-          <View style={styles.desktopAside}>
-            <View style={[styles.sideCard, { backgroundColor: cardBg, borderColor: border }]}>
-              <Text style={[styles.sideTitle, { color: c.text }]}>Активности</Text>
-              {allTasks.length === 0 ? (
-                <Text style={{ color: c.muted, fontSize: 13 }}>Добавьте активность ниже</Text>
-              ) : (
-                allTasks.map((t) => (
-                  <View key={t.id} style={styles.sideRow}>
-                    <Ionicons name="ellipse" size={8} color={topic.tabActive} />
-                    <Text style={{ color: c.text, fontSize: 13, flex: 1 }} numberOfLines={1}>
-                      {t.name}
-                    </Text>
-                    <Pressable
-                      onPress={() =>
-                        confirmDelete('Удалить активность?', t.name, () => deleteTask(t.id))
-                      }
-                      hitSlop={8}
-                      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 4 })}>
-                      <Ionicons name="trash-outline" size={16} color="#FF6B6B" />
-                    </Pressable>
-                  </View>
-                ))
-              )}
-            </View>
-            <View style={[styles.sideCard, { backgroundColor: cardBg, borderColor: border }]}>
-              <Text style={[styles.sideTitle, { color: c.text }]}>Live map</Text>
-              <Text style={{ color: c.muted, fontSize: 13 }}>{todayBadge}</Text>
-            </View>
-          </View>
-        ) : (
-          <View style={[styles.overviewSide, isDesktopWeb && styles.overviewSideDesktop]}>
-            <View style={styles.grid3}>
-              <View style={[styles.actCard, { backgroundColor: cardBg, borderColor: border }]}>
-                <Text style={styles.actEmoji}>👟</Text>
-                <Text style={{ color: c.muted, fontSize: 12 }}>Шаги</Text>
-                <Text style={[styles.actVal, { color: c.text }]}>{getStepsToday().toLocaleString('ru')}</Text>
-                <Pressable onPress={togglePedo} style={[styles.pedoBtn, { borderColor: border, backgroundColor: hoverBg }]}>
-                  <Text style={{ color: '#1c1c1e', fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>
-                    {pedoActive ? 'Выключить' : 'Включить шагомер'}
-                  </Text>
-                </Pressable>
-              </View>
-              <View style={[styles.actCard, { backgroundColor: cardBg, borderColor: border }]}>
-                <Text style={styles.actEmoji}>⏱️</Text>
-                <Text style={{ color: c.muted, fontSize: 12 }}>Momentum</Text>
-                <Text style={[styles.actVal, { color: c.text }]}>{momentum}%</Text>
-              </View>
-              <View style={[styles.actCard, { backgroundColor: cardBg, borderColor: border }]}>
-                <Text style={styles.actEmoji}>🔥</Text>
-                <Text style={{ color: c.muted, fontSize: 12 }}>Серия</Text>
-                <Text style={[styles.actVal, { color: c.text }]}>{streak}</Text>
-              </View>
-            </View>
-          </View>
-        )}
-      </View>
       </Animated.View>
 
       <SectionTitle title="Активности" subtitle={todayBadge} />
-      <Text style={{ color: c.muted, marginBottom: 8 }}>
-        Сделано: <Text style={{ color: c.accent, fontFamily: 'Inter_700Bold' }}>{doneToday}</Text> · Осталось:{' '}
-        <Text style={{ fontFamily: 'Inter_700Bold', color: c.text }}>{statLeft}</Text>
-      </Text>
 
       {!totalTasks ? (
         <View style={styles.quickRow}>
@@ -354,8 +140,8 @@ export default function HomeScreen() {
             <Pressable
               key={name}
               onPress={() => addTaskByName(name)}
-              style={[styles.quickBtn, { borderColor: border, backgroundColor: hoverBg }]}>
-              <Text style={{ color: c.muted, fontSize: 13 }}>+ {name}</Text>
+              style={[styles.quickBtn, { borderColor: c.accent + '44', backgroundColor: c.card }]}>
+              <Text style={{ color: c.text, fontSize: 13, fontFamily: 'Inter_500Medium' }}>+ {name}</Text>
             </Pressable>
           ))}
         </View>
@@ -367,7 +153,7 @@ export default function HomeScreen() {
           {
             color: c.text,
             borderColor: border,
-            backgroundColor: hoverBg,
+            backgroundColor: c.card,
             fontFamily: 'Inter_400Regular',
           },
         ]}
@@ -490,9 +276,14 @@ export default function HomeScreen() {
           onPress={() => markDayAsAchievement()}
           style={[
             styles.markDayBtn,
-            { backgroundColor: dayMarked ? c.cardElevated : c.accentSoft, borderWidth: dayMarked ? 0 : 1, borderColor: c.accent, opacity: dayMarked ? 0.85 : 1 },
+            {
+              backgroundColor: dayMarked ? c.cardElevated : c.accent,
+              borderWidth: dayMarked ? 1 : 0,
+              borderColor: c.border,
+              opacity: dayMarked ? 0.85 : 1,
+            },
           ]}>
-          <Text style={[styles.markDayBtnText, { color: dayMarked ? c.muted : c.text }]}>
+          <Text style={[styles.markDayBtnText, { color: dayMarked ? c.muted : c.onAccent }]}>
             {dayMarked ? 'День отмечен ✓' : 'День прошёл удачно ✓'}
           </Text>
         </Pressable>
@@ -598,7 +389,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderWidth: 1,
+    ...WebTheme.shadowSoft,
   },
   brandTitle: { fontSize: 34, lineHeight: 38, fontFamily: 'Inter_700Bold', letterSpacing: -1.2 },
   brandSub: { fontSize: 14, fontFamily: 'Inter_500Medium', textAlign: 'center', marginTop: 4, lineHeight: 20, opacity: 0.8 },
@@ -607,7 +398,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -620,7 +410,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -704,8 +493,7 @@ const styles = StyleSheet.create({
   macroCard: {
     flex: 1,
     minWidth: 0,
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: 18,
     paddingVertical: 12,
     paddingHorizontal: 6,
     alignItems: 'center',
@@ -735,7 +523,29 @@ const styles = StyleSheet.create({
   todayBadge: { fontSize: 13, fontFamily: 'Inter_500Medium', marginBottom: 8 },
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   quickBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-  input: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 12, fontSize: 16 },
+  progressChip: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 14,
+    marginBottom: 14,
+  },
+  progressChipHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    minWidth: 6,
+  },
+  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, marginBottom: 12, fontSize: 15 },
   taskRow: {
     flexDirection: 'row',
     alignItems: 'center',

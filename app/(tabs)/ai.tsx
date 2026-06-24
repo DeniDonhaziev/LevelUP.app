@@ -14,16 +14,17 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { AppInput } from '@/components/ui/AppInput';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
-import { SectionTitle } from '@/components/ui/SectionTitle';
+import { TabScreenHeader } from '@/components/ui/TabScreenHeader';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAppTopic } from '@/hooks/useAppTopic';
+import { useTrackerStore } from '@/store/trackerStore';
+import { buildAiProfileContext, mapToBodyGoal } from '@/lib/onboarding';
 import { WebTheme } from '@/lib/theme';
 import {
   analyzeFoodImage,
   canAnalyzeFoodPhoto,
   coachChat,
-  getAiProviderLabel,
   isAiConfigured,
   type BodyGoal,
   type ChatMessage,
@@ -38,6 +39,14 @@ export default function AiScreen() {
   const topic = useAppTopic();
 
   const [goal, setGoal] = useState<BodyGoal>('lose');
+
+  // Стартовая цель коуча — из анкеты пользователя
+  useEffect(() => {
+    const st = useTrackerStore.getState();
+    const profile = st.currentUser ? st.userData[st.currentUser]?.onboarding : undefined;
+    if (profile?.completed) setGoal(mapToBodyGoal(profile.goals));
+  }, []);
+
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [foodLoading, setFoodLoading] = useState(false);
   const [foodResult, setFoodResult] = useState<FoodAnalysisResult | null>(null);
@@ -136,7 +145,9 @@ export default function AiScreen() {
     setChatLoading(true);
     setFoodError(null);
     try {
-      const reply = await coachChat(thread, goal, topic.id);
+      const st = useTrackerStore.getState();
+      const profile = st.currentUser ? st.userData[st.currentUser]?.onboarding : undefined;
+      const reply = await coachChat(thread, goal, topic.id, buildAiProfileContext(profile));
       setChatMessages((m) => [...m, { role: 'assistant', content: reply }]);
     } catch (e) {
       setFoodError((e as Error).message ?? 'Ошибка чата');
@@ -188,17 +199,13 @@ export default function AiScreen() {
 
   const cardBg = scheme === 'dark' ? c.cardHover : c.card;
 
-  const aiSubtitle = hasKey
-    ? `ИИ: ${getAiProviderLabel()} · тема ${topic.label}. ${topic.aiSubtitle}`
-    : topic.aiSubtitle;
-
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={88}>
       <ScreenScroll keyboardShouldPersistTaps="handled">
-        <SectionTitle title={topic.aiTitle} subtitle={aiSubtitle} />
+        <TabScreenHeader title={topic.aiTitle} subtitle="Коуч и анализ питания" />
 
         {!hasKey ? (
           <View style={[styles.bubble, { borderColor: c.border, backgroundColor: cardBg }]}>

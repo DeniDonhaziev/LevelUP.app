@@ -16,10 +16,17 @@ export function PrimaryButton({ label, onPress, loading, disabled, variant = 'pr
   const isGhost = variant === 'ghost';
   const isSecondary = variant === 'secondary';
 
-  const bg = isGhost ? 'transparent' : isSecondary ? c.cardHover : c.cardElevated;
-  const textColor = isGhost ? c.accent : c.text;
-  const borderColor = isGhost ? 'transparent' : isSecondary ? c.border : c.accent;
-  const borderWidth = isGhost ? 0 : 1;
+  const bg =
+    variant === 'primary'
+      ? c.accent
+      : isGhost
+        ? 'transparent'
+        : isSecondary
+          ? c.cardHover
+          : c.card;
+  const textColor = variant === 'primary' ? c.onAccent : isGhost ? c.accent : c.text;
+  const borderColor = variant === 'primary' ? c.accent : isGhost ? 'transparent' : c.border;
+  const borderWidth = variant === 'primary' || isGhost ? 0 : 1;
 
   return (
     <Pressable
@@ -47,9 +54,9 @@ export function PrimaryButton({ label, onPress, loading, disabled, variant = 'pr
 
 const styles = StyleSheet.create({
   wrap: {
-    borderRadius: WebTheme.radiusSm,
+    borderRadius: WebTheme.radiusLg,
     overflow: 'hidden',
-    minHeight: 48,
+    minHeight: 50,
     justifyContent: 'center',
   },
   btn: {

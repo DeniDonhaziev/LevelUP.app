@@ -166,32 +166,71 @@ export async function leaveClanInFirestore(clanId: string, uid: string, isOwner:
 }
 
 /** Expo-токены участников клана (для push с телефона отправителя, без Cloud Functions). */
-export async function loadClanExpoPushTokens(
-  clanId: string,
-  excludeUid: string
-): Promise<string[]> {
-  const members = await loadClanMembers(clanId);
-  const tokens = new Set<string>();
-  for (const m of members) {
-    if (m.uid === excludeUid) continue;
-    const t = m.expoPushToken;
-    if (typeof t === 'string' && t.startsWith('ExponentPushToken[')) {
-      tokens.add(t);
-    }
-  }
-  return [...tokens];
-}
-
 export async function updateClanMemberExpoPushToken(
   clanId: string,
   uid: string,
   expoPushToken: string
 ): Promise<void> {
   if (!expoPushToken.startsWith('ExponentPushToken[')) return;
+  await updateClanMemberPushTokens(clanId, uid, { expoPushToken });
+}
+
+export async function updateClanMemberPushTokens(
+  clanId: string,
+  uid: string,
+  tokens: { expoPushToken?: string; fcmPushToken?: string }
+): Promise<void> {
+  const patch: Record<string, unknown> = { pushUpdatedAt: Date.now() };
+  if (tokens.expoPushToken?.startsWith('ExponentPushToken[')) {
+    patch.expoPushToken = tokens.expoPushToken;
+  }
+  if (tokens.fcmPushToken && !tokens.fcmPushToken.startsWith('ExponentPushToken[')) {
+    patch.fcmPushToken = tokens.fcmPushToken;
+  }
+  if (Object.keys(patch).length <= 1) return;
+
   const memberRef = doc(getDb(), CLANS, clanId, 'members', uid);
   const snap = await getDoc(memberRef);
   if (!snap.exists()) return;
-  await updateDoc(memberRef, { expoPushToken, pushUpdatedAt: Date.now() });
+  await updateDoc(memberRef, patch);
+}
+
+export type ClanPushTargets = {
+  expoTokens: string[];
+  fcmTokens: string[];
+};
+
+/** Токены участников клана с документа member (доступны всем участникам). */
+export async function loadClanMemberPushTokens(
+  clanId: string,
+  excludeUid: string
+): Promise<ClanPushTargets> {
+  const members = await loadClanMembers(clanId);
+  const expoTokens = new Set<string>();
+  const fcmTokens = new Set<string>();
+
+  for (const m of members) {
+    if (m.uid === excludeUid) continue;
+    const expo = m.expoPushToken;
+    if (typeof expo === 'string' && expo.startsWith('ExponentPushToken[')) {
+      expoTokens.add(expo);
+    }
+    const fcm = m.fcmPushToken;
+    if (typeof fcm === 'string' && fcm.length > 20 && !fcm.startsWith('ExponentPushToken[')) {
+      fcmTokens.add(fcm);
+    }
+  }
+
+  return { expoTokens: [...expoTokens], fcmTokens: [...fcmTokens] };
+}
+
+/** @deprecated используйте loadClanMemberPushTokens */
+export async function loadClanExpoPushTokens(
+  clanId: string,
+  excludeUid: string
+): Promise<string[]> {
+  const { expoTokens } = await loadClanMemberPushTokens(clanId, excludeUid);
+  return expoTokens;
 }
 
 export async function sendClanMessageInFirestore(

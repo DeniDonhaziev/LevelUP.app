@@ -1,11 +1,8 @@
 import React, { useEffect } from 'react';
 import {
-  Animated,
-  Easing,
   Image,
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   View,
   useWindowDimensions,
@@ -49,21 +46,6 @@ function MobileTabBar(
   const tabActive = props.tabActive;
   const visibleRoutes = filterTabRoutes(props.state.routes);
   const c = props.palette;
-  const [barWidth, setBarWidth] = React.useState(0);
-  const activeIndex = visibleRoutes.findIndex((r) => r.key === props.state.routes[props.state.index]?.key);
-  const safeIndex = activeIndex < 0 ? 0 : activeIndex;
-  const indicatorX = React.useRef(new Animated.Value(0)).current;
-  const itemWidth = barWidth > 0 && visibleRoutes.length > 0 ? barWidth / visibleRoutes.length : 0;
-
-  useEffect(() => {
-    if (!itemWidth) return;
-    Animated.timing(indicatorX, {
-      toValue: safeIndex * itemWidth,
-      duration: 260,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [indicatorX, itemWidth, safeIndex]);
 
   return (
     <View
@@ -78,50 +60,15 @@ function MobileTabBar(
         paddingBottom: bottomPad + 8,
       }}>
       <View
-        onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          borderRadius: 999,
+          borderRadius: 20,
           borderWidth: 1,
           borderColor: c.border,
           backgroundColor: c.tabBar,
           overflow: 'hidden',
-          shadowColor: '#000000',
-          shadowOffset: { width: 0, height: 12 },
-          shadowOpacity: 0.35,
-          shadowRadius: 24,
-          elevation: 12,
         }}>
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            left: 24,
-            right: 24,
-            top: 1,
-            height: 20,
-            borderRadius: 999,
-            backgroundColor: 'rgba(255,255,255,0.22)',
-          }}
-        />
-        {itemWidth > 0 ? (
-          <Animated.View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              top: 6,
-              left: 0,
-              width: itemWidth,
-              height: 50,
-              borderRadius: 999,
-              borderWidth: 1,
-              borderColor: c.border,
-              backgroundColor: 'rgba(255,255,255,0.35)',
-              transform: [{ translateX: indicatorX }],
-            }}
-          />
-        ) : null}
         {visibleRoutes.map((route) => {
           const { options } = props.descriptors[route.key];
           const label =
@@ -143,7 +90,7 @@ function MobileTabBar(
             }
           };
 
-          const tint = isFocused ? '#111111' : '#444444';
+          const tint = isFocused ? c.accent : c.tabIconDefault;
 
           return (
             <Pressable
@@ -162,6 +109,19 @@ function MobileTabBar(
                 minHeight: 62,
                 opacity: pressed ? 0.7 : 1,
               })}>
+              {isFocused ? (
+                <View
+                  style={{
+                    width: 22,
+                    height: 3,
+                    borderRadius: 2,
+                    backgroundColor: c.accent,
+                    marginBottom: 6,
+                  }}
+                />
+              ) : (
+                <View style={{ height: 9 }} />
+              )}
               {options.tabBarIcon?.({ focused: isFocused, color: tint, size: 24 })}
               <Text
                 numberOfLines={1}
@@ -221,7 +181,7 @@ function DesktopSideBar({
     profile: 'person',
   };
   return (
-    <View style={{ position: 'absolute', left: 14, top: 82, bottom: 18, width: 58, borderRadius: 22, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.cardElevated, paddingVertical: 10, alignItems: 'center', gap: 10 }}>
+    <View style={{ position: 'absolute', left: 14, top: 82, bottom: 18, width: 58, borderRadius: 22, backgroundColor: palette.cardElevated, paddingVertical: 10, alignItems: 'center', gap: 10, ...WebTheme.shadowSoft }}>
       {filterTabRoutes(props.state.routes).map((route) => {
         const focused = isTabFocused(props.state, route.name);
         const icon = iconByRoute[route.name] ?? 'ellipse';
@@ -239,7 +199,7 @@ function DesktopSideBar({
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-            <Ionicons name={icon} size={18} color="#111111" />
+            <Ionicons name={icon} size={18} color={focused ? palette.accent : palette.text} />
           </Pressable>
         );
       })}
@@ -270,7 +230,7 @@ export default function TabLayout() {
   const mobileTabBarHeight = 92 + bottomPad;
 
   return (
-    <View style={{ flex: 1, backgroundColor: palette.background }}>
+    <View style={{ flex: 1, backgroundColor: palette.backgroundAlt }}>
       <Tabs
         tabBar={(props) =>
           isDesktopWeb ? (
@@ -287,8 +247,8 @@ export default function TabLayout() {
           tabBarActiveTintColor: isDesktopWeb ? topic.tabActive : topic.tabActive,
           tabBarInactiveTintColor: palette.tabIconDefault,
           sceneStyle: isDesktopWeb
-            ? { paddingLeft: 86, backgroundColor: palette.background }
-            : { backgroundColor: palette.background },
+            ? { paddingLeft: 86, backgroundColor: palette.backgroundAlt }
+            : { backgroundColor: palette.backgroundAlt },
           tabBarStyle: isDesktopWeb
           ? {
               backgroundColor: palette.tabBar,
@@ -328,9 +288,8 @@ export default function TabLayout() {
         },
         tabBarItemStyle: { paddingVertical: 4, borderRadius: 14 },
         headerStyle: {
-          backgroundColor: palette.backgroundAlt,
-          borderBottomWidth: 1,
-          borderBottomColor: palette.border,
+          backgroundColor: palette.background,
+          borderBottomWidth: 0,
           shadowOpacity: 0,
           shadowRadius: 0,
           elevation: 0,

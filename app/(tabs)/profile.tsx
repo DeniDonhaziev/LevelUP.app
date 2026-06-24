@@ -8,22 +8,27 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
+import { NotificationSettings } from '@/components/NotificationSettings';
 import { AppInput } from '@/components/ui/AppInput';
 import { GroupedSection } from '@/components/ui/GroupedSection';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
-import { SectionTitle } from '@/components/ui/SectionTitle';
+import { TabScreenHeader } from '@/components/ui/TabScreenHeader';
 import { pickAvatarImageAsPersistentUri } from '@/lib/avatarPick';
 import { isFirebaseConfigured } from '@/lib/firebase/config';
 import { saveFirebaseDisplayName, saveLocalDisplayName } from '@/lib/firebase/profile';
 import { firebaseChangePassword } from '@/lib/firebase/authFlow';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTrackerStore } from '@/store/trackerStore';
+import { onboardingSummaryLine } from '@/lib/onboarding';
 
 export default function ProfileScreen() {
   const c = useThemeColors();
   const user = useTrackerStore((s) => s.currentUser);
+  const onboarding = useTrackerStore((s) => (s.currentUser ? s.userData[s.currentUser]?.onboarding : undefined));
   const photoURL = useTrackerStore((s) => s.localAvatarDataUrl);
   const setLocalAvatarDataUrl = useTrackerStore((s) => s.setLocalAvatarDataUrl);
   const changeLocalPassword = useTrackerStore((s) => s.changeLocalPassword);
@@ -122,7 +127,24 @@ export default function ProfileScreen() {
 
   return (
     <ScreenScroll keyboardShouldPersistTaps="handled">
-      <SectionTitle title="Профиль" subtitle="Аватар и отображаемое имя" />
+      <TabScreenHeader title="Профиль" subtitle="Настройки и уведомления" showNotify={false} />
+
+      <GroupedSection title="Анкета">
+        <Pressable
+          onPress={() => router.push('/onboarding?edit=1')}
+          style={({ pressed }) => [styles.anketaRow, { opacity: pressed ? 0.7 : 1 }]}>
+          <View style={[styles.anketaIcon, { backgroundColor: c.pastelMint }]}>
+            <Ionicons name="clipboard-outline" size={20} color={c.lime} />
+          </View>
+          <View style={styles.anketaBody}>
+            <Text style={[styles.anketaTitle, { color: c.text }]}>Моя анкета</Text>
+            <Text style={[styles.anketaSub, { color: c.muted }]} numberOfLines={1}>
+              {onboardingSummaryLine(onboarding)}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={c.muted} />
+        </Pressable>
+      </GroupedSection>
 
       <GroupedSection title="Фото">
         <View style={styles.avatarBlock}>
@@ -176,6 +198,8 @@ export default function ProfileScreen() {
           <PrimaryButton label="Сохранить имя" loading={saving} onPress={() => void saveName()} />
         </View>
       </GroupedSection>
+
+      <NotificationSettings />
 
       <GroupedSection title="Пароль">
         <View style={styles.nameBlock}>
@@ -258,4 +282,9 @@ const styles = StyleSheet.create({
   removeLinkText: { fontSize: 14, fontFamily: 'Inter_500Medium' },
   nameBlock: { padding: 16, gap: 12 },
   label: { fontSize: 13, fontFamily: 'Inter_500Medium' },
+  anketaRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
+  anketaIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  anketaBody: { flex: 1 },
+  anketaTitle: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+  anketaSub: { fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 2 },
 });

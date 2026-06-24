@@ -2,6 +2,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { Redirect } from 'expo-router';
 
 import { useTrackerStore } from '@/store/trackerStore';
+import { isOnboardingComplete } from '@/lib/onboarding';
 
 /**
  * Не ждём rehydrate — иначе при сбое AsyncStorage/zustand вечный спиннер.
@@ -11,6 +12,7 @@ import { useTrackerStore } from '@/store/trackerStore';
 export default function Index() {
   const authReady = useTrackerStore((s) => s.authReady);
   const currentUser = useTrackerStore((s) => s.currentUser);
+  const userData = useTrackerStore((s) => (currentUser ? s.userData[currentUser] : null));
 
   if (!authReady) {
     return (
@@ -22,6 +24,11 @@ export default function Index() {
 
   if (!currentUser) {
     return <Redirect href="/(auth)/sign-in" />;
+  }
+
+  // Гейт анкеты: новый пользователь без заполненной анкеты → онбординг
+  if (!isOnboardingComplete(userData)) {
+    return <Redirect href="/onboarding" />;
   }
 
   return <Redirect href="/(tabs)" />;

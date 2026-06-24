@@ -33,7 +33,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginTop: 8,
+    marginBottom: 10,
     gap: 12,
   },
   compactTitle: {

@@ -12,10 +12,13 @@ import {
 
 import { DEFAULT_TOPIC_ID, type TopicId } from '@/lib/topics';
 import { emptyUserData } from '@/lib/trackerLogic';
-import { useTrackerStore } from '@/store/trackerStore';
+import { mergeUserData } from '@/lib/userDataMerge';
+import { useTrackerStore, waitForStoreHydration } from '@/store/trackerStore';
 
 import { ensureNotificationPermission } from '@/lib/notifications/clanChat';
-import { registerPushToken } from '@/lib/notifications/pushTokens';
+import { refreshFcmTokenIfPermitted } from '@/lib/notifications/fcm';
+import { clearPushTokensOnLogout } from '@/lib/notifications/fcm/logout';
+import { syncMotivationSchedule } from '@/lib/notifications/runMotivation';
 
 import { pullClansFromCloud, stopClanListeners } from './clanListeners';
 import { startRunnerLeaderboardListener, stopRunnerLeaderboardListener } from './runnerListeners';
@@ -54,7 +57,7 @@ async function startSportListeners(uid: string): Promise<void> {
   await pullClansFromCloud();
   if (await ensureNotificationPermission()) {
     const clanId = useTrackerStore.getState().getClanId();
-    await registerPushToken(uid, clanId);
+    await refreshFcmTokenIfPermitted(uid, clanId);
   }
 }
 
@@ -90,6 +93,7 @@ export function subscribeToAuthChanges(): () => void {
 
   const auth = getFirebaseAuth();
   const unsubAuth = onAuthStateChanged(auth, async (user) => {
+    await waitForStoreHydration();
     const store = useTrackerStore.getState();
     stopTerritoriesListener();
     stopClanListeners();
@@ -119,9 +123,11 @@ export function subscribeToAuthChanges(): () => void {
     } catch (e) {
       console.warn('Firebase auth state:', e);
       if (user?.email) {
-        const data = emptyUserData();
         const displayName = displayUsernameFromDoc(null, user.email, user.displayName);
         const photo = profilePhotoFromDoc(null, user.photoURL);
+        const localKey = store.currentUser ?? displayName;
+        const localData = localKey ? store.getUserData(localKey) : emptyUserData();
+        const data = mergeUserData(localData, emptyUserData());
         store.applyFirebaseSession(user.email, user.uid, data, displayName, photo, DEFAULT_TOPIC_ID);
         try {
           store.setTerritories(await loadTerritoriesCollection());
@@ -217,9 +223,12 @@ export async function firebaseLogin(identifier: string, password: string): Promi
       );
     } catch (loadErr) {
       console.warn('Firebase login: не удалось загрузить профиль из Firestore', loadErr);
-      const data = emptyUserData();
+      const st = useTrackerStore.getState();
       const displayName = displayUsernameFromDoc(null, cred.user.email!, cred.user.displayName);
       const photo = profilePhotoFromDoc(null, cred.user.photoURL);
+      const localKey = st.currentUser ?? displayName;
+      const localData = localKey ? st.getUserData(localKey) : emptyUserData();
+      const data = mergeUserData(localData, emptyUserData());
       useTrackerStore.getState().applyFirebaseSession(
         cred.user.email!,
         cred.user.uid,
@@ -249,8 +258,18 @@ export async function firebaseLogin(identifier: string, password: string): Promi
 
 export async function firebaseLogout(): Promise<void> {
   stopTerritoriesListener();
+  const st = useTrackerStore.getState();
+  const uid = st.firebaseUid;
+  const clanId = st.getClanId();
+  if (uid) {
+    try {
+      await clearPushTokensOnLogout(uid, clanId);
+    } catch (e) {
+      console.warn('clearPushTokensOnLogout:', e);
+    }
+  }
   await signOut(getFirebaseAuth());
-  useTrackerStore.getState().clearFirebaseSession();
+  st.clearFirebaseSession();
 }
 
 async function resolveEmailForAuth(identifier: string): Promise<string | null> {

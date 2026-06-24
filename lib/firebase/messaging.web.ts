@@ -1,7 +1,8 @@
 import { doc, setDoc } from 'firebase/firestore';
 import { getMessaging, getToken, isSupported, onMessage, type Messaging } from 'firebase/messaging';
 
-import { showClanMessageNotification } from '@/lib/notifications/clanChat';
+import { handleWebForegroundMessage } from '@/lib/notifications/fcm/handlers';
+import { updateClanMemberPushTokens } from '@/lib/firebase/clanSync';
 
 import { getFirebaseApp, getDb } from './app';
 import { getFirebaseExtra } from './config';
@@ -25,15 +26,15 @@ function hookForeground(messaging: Messaging): void {
   if (foregroundHooked) return;
   foregroundHooked = true;
   onMessage(messaging, (payload) => {
-    const title = payload.notification?.title ?? 'Клан';
-    const body = payload.notification?.body ?? 'Новое сообщение';
-    const from = title.replace(/^Клан\s*·\s*/i, '').trim() || 'Клан';
-    void showClanMessageNotification(from, body);
+    const title = payload.notification?.title ?? 'LevelUp';
+    const body = payload.notification?.body ?? '';
+    const data = (payload.data || {}) as Record<string, unknown>;
+    handleWebForegroundMessage(title, body, data);
   });
 }
 
 /** FCM для PWA/браузера — push как в WhatsApp, даже когда вкладка свёрнута. */
-export async function registerWebPushToken(uid: string): Promise<boolean> {
+export async function registerWebPushToken(uid: string, clanId?: string | null): Promise<boolean> {
   if (typeof window === 'undefined' || !uid) return false;
 
   const extra = getFirebaseExtra();
@@ -75,6 +76,14 @@ export async function registerWebPushToken(uid: string): Promise<boolean> {
       platform: 'web',
       updatedAt: Date.now(),
     });
+
+    if (clanId) {
+      try {
+        await updateClanMemberPushTokens(clanId, uid, { fcmPushToken: token });
+      } catch (e) {
+        console.warn('sync web fcm to clan member:', e);
+      }
+    }
 
     hookForeground(messaging);
     return true;

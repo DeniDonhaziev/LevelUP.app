@@ -27,7 +27,7 @@ export function GroupedSection({ title, footer, children, style, ...rest }: Prop
 const styles = StyleSheet.create({
   wrap: { gap: 0 },
   group: {
-    borderRadius: WebTheme.radius,
+    borderRadius: WebTheme.radiusLg,
     borderWidth: 1,
     overflow: 'hidden',
     ...WebTheme.shadowSoft,

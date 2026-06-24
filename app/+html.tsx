@@ -1,5 +1,7 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 
+import { webFontsCss } from '@/lib/webFontsCss';
+
 // This file is web-only and used to configure the root HTML for every
 // web page during static rendering.
 // The contents of this function only run in Node.js environments and
@@ -34,7 +36,14 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <ScrollViewStyleReset />
 
         {/* Using raw CSS styles as an escape-hatch to ensure the background color never flickers in dark-mode. */}
-        <style dangerouslySetInnerHTML={{ __html: responsiveBackground }} />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link rel="preload" href="/fonts/ionicons.ttf" as="font" type="font/ttf" crossOrigin="" />
+        <style dangerouslySetInnerHTML={{ __html: webFontsCss + responsiveBackground }} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var id='expo-generated-fonts',f='ionicons',u='/fonts/ionicons.ttf',s=document.getElementById(id);if(!s){s=document.createElement('style');s.id=id;document.head.appendChild(s);}var ok=false;try{ok=s.sheet&&Array.prototype.some.call(s.sheet.cssRules,function(r){return r instanceof CSSFontFaceRule&&r.style.fontFamily.indexOf(f)>=0;});}catch(e){}if(!ok){s.appendChild(document.createTextNode('@font-face{font-family:"'+f+'";src:url("'+u+'") format("truetype");font-display:swap}'));}})();`,
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -64,6 +73,7 @@ html {
 body {
   background-color: #F2F2F7;
   color: #1C1C1E;
+  font-family: 'Inter_400Regular', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

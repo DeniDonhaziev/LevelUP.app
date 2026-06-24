@@ -256,12 +256,13 @@ function toApiMessages(thread: ChatMessage[]): { role: 'user' | 'assistant'; con
 export async function coachChat(
   messages: ChatMessage[],
   goal: BodyGoal,
-  topicId: TopicId = 'sport'
+  topicId: TopicId = 'sport',
+  profileContext?: string
 ): Promise<string> {
   const apiKey = getOpenRouterApiKey();
   if (!apiKey) throw new Error('NO_API_KEY');
 
-  const system = buildCoachSystemPrompt(topicId, goal);
+  const system = buildCoachSystemPrompt(topicId, goal, profileContext);
 
   const res = await chatCompletionsWithRetry(apiKey, {
     model: getChatModelId(),

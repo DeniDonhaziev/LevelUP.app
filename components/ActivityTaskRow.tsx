@@ -22,14 +22,19 @@ type Props = {
 
 export function ActivityTaskRow({ taskId, name, done, palette, onToggle, onDelete }: Props) {
   return (
-    <View style={[styles.row, { borderColor: palette.border, backgroundColor: palette.cardBg }]}>
+    <View
+      style={[
+        styles.row,
+        { borderColor: palette.border, backgroundColor: palette.cardBg },
+        done && { opacity: 0.7 },
+      ]}>
       <Pressable
         onPress={() => onToggle(taskId)}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: done }}>
         {done ? (
-          <View style={[styles.checkboxDone, { backgroundColor: palette.accentDone + '14', borderColor: palette.accentDone }]}>
-            <Ionicons name="checkmark" size={16} color={palette.accentDone} />
+          <View style={[styles.checkboxDone, { backgroundColor: palette.accentDone }]}>
+            <Ionicons name="checkmark" size={15} color="#0A0A0B" />
           </View>
         ) : (
           <View style={[styles.checkbox, { borderColor: palette.border }]} />
@@ -47,10 +52,10 @@ export function ActivityTaskRow({ taskId, name, done, palette, onToggle, onDelet
           })
         }
         hitSlop={10}
-        style={({ pressed }) => [styles.deleteBtn, { opacity: pressed ? 0.6 : 1 }]}
+        style={({ pressed }) => [styles.deleteBtn, { opacity: pressed ? 0.5 : 1 }]}
         accessibilityRole="button"
         accessibilityLabel={`Удалить ${name}`}>
-        <Ionicons name="trash-outline" size={18} color="#111111" />
+        <Ionicons name="trash-outline" size={18} color={palette.muted} />
       </Pressable>
     </View>
   );
@@ -60,29 +65,28 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 18,
-    paddingVertical: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+    paddingVertical: 13,
     paddingHorizontal: 14,
-    marginBottom: 10,
+    marginBottom: 8,
     gap: 12,
   },
   checkbox: {
-    width: 28,
-    height: 28,
-    borderRadius: 10,
-    borderWidth: 2,
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    borderWidth: 1.5,
   },
   checkboxDone: {
-    width: 28,
-    height: 28,
-    borderRadius: 10,
-    borderWidth: 2,
+    width: 24,
+    height: 24,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
   },
   nameWrap: { flex: 1 },
-  name: { fontSize: 16, fontFamily: 'Inter_600SemiBold', letterSpacing: -0.2 },
-  nameDone: { textDecorationLine: 'line-through', opacity: 0.45 },
-  deleteBtn: { padding: 6 },
+  name: { fontSize: 15, fontFamily: 'Inter_500Medium' },
+  nameDone: { textDecorationLine: 'line-through', color: '#8E8E93' },
+  deleteBtn: { padding: 4 },
 });

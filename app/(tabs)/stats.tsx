@@ -2,9 +2,8 @@ import { View, Text, StyleSheet, Platform, useWindowDimensions } from 'react-nat
 
 import { GroupedSection } from '@/components/ui/GroupedSection';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
-import { SectionTitle } from '@/components/ui/SectionTitle';
+import { TabScreenHeader } from '@/components/ui/TabScreenHeader';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { isFirebaseConfigured } from '@/lib/firebase/config';
 import { buildRunnerRanking, formatLength } from '@/lib/trackerLogic';
 import { useTrackerStore } from '@/store/trackerStore';
 
@@ -13,7 +12,6 @@ export default function StatsScreen() {
   const isDesktopWeb = Platform.OS === 'web' && width >= 1100;
   const c = useThemeColors();
   const user = useTrackerStore((s) => s.currentUser);
-  const firebaseUid = useTrackerStore((s) => s.firebaseUid);
   const territories = useTrackerStore((s) => s.territories);
   const runnerLeaderboard = useTrackerStore((s) => s.runnerLeaderboard);
   const userDataMap = useTrackerStore((s) => s.userData);
@@ -21,13 +19,6 @@ export default function StatsScreen() {
   const ranking = buildRunnerRanking(runnerLeaderboard, userDataMap, territories);
   const runLeader = ranking[0]?.username;
   const roadsLeader = [...ranking].sort((a, b) => b.roads - a.roads)[0]?.username;
-
-  const cloudRanking =
-    isFirebaseConfigured() && firebaseUid
-      ? 'Дистанция пробежек сохраняется в облаке и сразу учитывается в клане. Рейтинг обновляется в реальном времени.'
-      : isFirebaseConfigured()
-        ? 'Войдите в аккаунт (Firebase), чтобы видеть общий рейтинг всех игроков.'
-        : 'Без Firebase рейтинг только на этом устройстве (локальные аккаунты).';
 
   const tableRows = ranking.map((item, idx) => {
     const data = userDataMap[item.username];
@@ -53,7 +44,7 @@ export default function StatsScreen() {
 
   return (
     <ScreenScroll>
-      <SectionTitle title="Рейтинг бегунов" subtitle={cloudRanking} />
+      <TabScreenHeader title="Рейтинг бегунов" subtitle="Таблица лидеров GPS" />
       {isDesktopWeb ? (
         <View style={[styles.tableWrap, { backgroundColor: c.cardElevated, borderColor: c.border }]}>
           <View style={styles.tableHeadRow}>
