@@ -24,6 +24,7 @@ import { firebaseChangePassword } from '@/lib/firebase/authFlow';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTrackerStore } from '@/store/trackerStore';
 import { onboardingSummaryLine } from '@/lib/onboarding';
+import { getCurrentGeoPoint } from '@/lib/geolocation';
 
 export default function ProfileScreen() {
   const c = useThemeColors();
@@ -41,6 +42,30 @@ export default function ProfileScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
+
+  // Местоположение
+  const [geoBusy, setGeoBusy] = useState(false);
+  const [geoOk, setGeoOk] = useState<boolean | null>(null);
+  const [geoText, setGeoText] = useState('');
+
+  async function requestLocation() {
+    setGeoBusy(true);
+    setGeoText('');
+    try {
+      const pt = await getCurrentGeoPoint();
+      if (pt) {
+        setGeoOk(true);
+        setGeoText(`Доступ разрешён · ${pt.latitude.toFixed(4)}, ${pt.longitude.toFixed(4)}`);
+      } else {
+        setGeoOk(false);
+        setGeoText(
+          'Доступ не получен. Включите геолокацию на устройстве и разрешите её приложению, затем нажмите ещё раз.'
+        );
+      }
+    } finally {
+      setGeoBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (user) setName(user);
@@ -144,6 +169,34 @@ export default function ProfileScreen() {
           </View>
           <Ionicons name="chevron-forward" size={20} color={c.muted} />
         </Pressable>
+      </GroupedSection>
+
+      <GroupedSection title="Местоположение">
+        <View style={styles.geoBlock}>
+          <View style={[styles.geoStatusRow, { backgroundColor: c.cardHover, borderColor: c.border }]}>
+            <Ionicons
+              name={geoOk === true ? 'location' : geoOk === false ? 'location-outline' : 'navigate-outline'}
+              size={20}
+              color={geoOk === true ? c.lime : geoOk === false ? c.danger : c.muted}
+            />
+            <Text style={[styles.geoStatusText, { color: c.text }]}>
+              {geoOk === true
+                ? 'Геолокация разрешена — карта в «Беге» покажет вас'
+                : geoOk === false
+                  ? 'Доступ к геолокации не получен'
+                  : 'Разрешите доступ, чтобы карта показывала вашу позицию'}
+            </Text>
+          </View>
+          <Text style={[styles.geoHint, { color: c.muted }]}>
+            Нужно для отображения вашей позиции и трека на вкладках «Бег» и «Велосипед».
+          </Text>
+          <PrimaryButton
+            label="Определить моё местоположение"
+            loading={geoBusy}
+            onPress={() => void requestLocation()}
+          />
+          {geoText ? <Text style={[styles.geoResult, { color: c.muted }]}>{geoText}</Text> : null}
+        </View>
       </GroupedSection>
 
       <GroupedSection title="Фото">
@@ -287,4 +340,16 @@ const styles = StyleSheet.create({
   anketaBody: { flex: 1 },
   anketaTitle: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
   anketaSub: { fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 2 },
+  geoBlock: { padding: 16, gap: 10 },
+  geoStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  geoStatusText: { flex: 1, fontSize: 13, fontFamily: 'Inter_500Medium', lineHeight: 18 },
+  geoHint: { fontSize: 13, lineHeight: 18, fontFamily: 'Inter_400Regular' },
+  geoResult: { fontSize: 13, marginTop: 4, fontFamily: 'Inter_400Regular', lineHeight: 18 },
 });
