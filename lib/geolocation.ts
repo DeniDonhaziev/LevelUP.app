@@ -15,10 +15,10 @@ export async function getCurrentGeoPoint(): Promise<GeoPoint | null> {
           options
         );
       });
-    // 1) точно через GPS (телефон/PWA), 2) фолбэк по Wi-Fi/сети — надёжно на ПК
-    const precise = await tryGet({ enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
-    if (precise) return precise;
-    return tryGet({ enableHighAccuracy: false, maximumAge: 60000, timeout: 12000 });
+    // 1) быстрый фикс по сети/Wi-Fi (надёжно на iOS и ПК), 2) уточняем по GPS
+    const quick = await tryGet({ enableHighAccuracy: false, maximumAge: 30000, timeout: 12000 });
+    if (quick) return quick;
+    return tryGet({ enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
   }
 
   const { status } = await Location.requestForegroundPermissionsAsync();
@@ -67,9 +67,9 @@ export async function requestGeoDetailed(): Promise<GeoDetailed> {
           options
         );
       });
-    const precise = await tryGet({ enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
-    if (precise.ok || precise.reason === 'denied') return precise;
-    return tryGet({ enableHighAccuracy: false, maximumAge: 60000, timeout: 12000 });
+    const quick = await tryGet({ enableHighAccuracy: false, maximumAge: 30000, timeout: 12000 });
+    if (quick.ok || quick.reason === 'denied') return quick;
+    return tryGet({ enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
   }
 
   const { status } = await Location.requestForegroundPermissionsAsync();

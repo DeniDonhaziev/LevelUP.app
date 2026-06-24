@@ -51,11 +51,14 @@ export default function ProfileScreen() {
 
   function geoReasonHint(reason: GeoReason): string {
     const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-    const isMobile = Platform.OS !== 'web' || /Android|iPhone|iPad|iPod/i.test(ua);
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    const isMobile = Platform.OS !== 'web' || /Android/i.test(ua) || isIOS;
     switch (reason) {
       case 'denied':
+        if (isIOS)
+          return 'iPhone: 1) Настройки → Конфиденциальность и безопасность → Службы геолокации → ВКЛ. 2) В том же списке найдите Safari (или это приложение) → «Спросить в следующий раз» или «При использовании», включите «Точная геопозиция». 3) Закройте приложение и откройте заново, затем нажмите кнопку снова.';
         return isMobile
-          ? 'Доступ запрещён ранее. Android: меню браузера → «Настройки сайта» → Местоположение → Разрешить (или долгий тап по иконке приложения → Разрешения → Геолокация). iPhone: Настройки → Safari/приложение → Геопозиция → «При использовании». Затем нажмите ещё раз.'
+          ? 'Доступ запрещён ранее. Android: меню браузера → «Настройки сайта» → Местоположение → Разрешить (или долгий тап по иконке приложения → Разрешения → Геолокация). Затем нажмите ещё раз.'
           : 'Доступ запрещён ранее. Нажмите значок 🔒 слева в адресной строке → «Местоположение» → «Разрешить», затем обновите страницу (Ctrl+Shift+R) и нажмите снова.';
       case 'unavailable':
         return isMobile
