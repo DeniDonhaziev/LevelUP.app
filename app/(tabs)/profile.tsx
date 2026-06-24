@@ -24,7 +24,7 @@ import { firebaseChangePassword } from '@/lib/firebase/authFlow';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTrackerStore } from '@/store/trackerStore';
 import { onboardingSummaryLine } from '@/lib/onboarding';
-import { requestGeoDetailed, type GeoReason } from '@/lib/geolocation';
+import { getGeoPermissionState, requestGeoDetailed, type GeoReason } from '@/lib/geolocation';
 import { Platform } from 'react-native';
 
 export default function ProfileScreen() {
@@ -71,6 +71,28 @@ export default function ProfileScreen() {
         return 'Это устройство или браузер не поддерживает геолокацию.';
     }
   }
+
+  // При открытии профиля показываем текущее состояние доступа
+  useEffect(() => {
+    let cancelled = false;
+    void getGeoPermissionState().then((state) => {
+      if (cancelled) return;
+      if (state === 'granted') {
+        setGeoOk(true);
+        setGeoText('');
+      } else if (state === 'denied') {
+        setGeoOk(false);
+        setGeoText(geoReasonHint('denied'));
+      } else if (state === 'prompt') {
+        setGeoOk(null);
+        setGeoText('Нажмите кнопку — браузер покажет окно «Разрешить доступ к геолокации».');
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function requestLocation() {
     setGeoBusy(true);

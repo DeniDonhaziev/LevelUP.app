@@ -42,6 +42,19 @@ export async function requestGeoPermission(): Promise<boolean> {
   return status === 'granted';
 }
 
+/** Текущее состояние разрешения геолокации (web): можно ли показать окно запроса */
+export async function getGeoPermissionState(): Promise<'granted' | 'denied' | 'prompt' | 'unknown'> {
+  if (Platform.OS !== 'web' || typeof navigator === 'undefined') return 'unknown';
+  const perms = (navigator as Navigator & { permissions?: { query?: (d: { name: PermissionName }) => Promise<{ state: string }> } }).permissions;
+  if (!perms?.query) return 'unknown';
+  try {
+    const status = await perms.query({ name: 'geolocation' as PermissionName });
+    return (status.state as 'granted' | 'denied' | 'prompt') ?? 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
 export type GeoReason = 'denied' | 'unavailable' | 'timeout' | 'unsupported';
 export type GeoDetailed = { ok: true; point: GeoPoint } | { ok: false; reason: GeoReason };
 

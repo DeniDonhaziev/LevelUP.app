@@ -295,7 +295,7 @@ export default function RunScreen() {
               style={({ pressed }) => [styles.geoPromptBtn, { opacity: pressed ? 0.9 : 1 }]}>
               <Ionicons name="navigate" size={18} color="#16181C" />
               <Text style={styles.geoPromptText}>
-                {locating ? 'Определяем…' : 'Показать мою геопозицию'}
+                {locating ? 'Определяем…' : 'Разрешить местоположение'}
               </Text>
             </Pressable>
             {geoError ? <Text style={styles.geoPromptHint}>{geoError}</Text> : null}
