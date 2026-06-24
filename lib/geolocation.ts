@@ -41,3 +41,43 @@ export async function requestGeoPermission(): Promise<boolean> {
   const { status } = await Location.requestForegroundPermissionsAsync();
   return status === 'granted';
 }
+
+export type GeoReason = 'denied' | 'unavailable' | 'timeout' | 'unsupported';
+export type GeoDetailed = { ok: true; point: GeoPoint } | { ok: false; reason: GeoReason };
+
+/** Запрос с понятной причиной ошибки — для подсказок в UI. */
+export async function requestGeoDetailed(): Promise<GeoDetailed> {
+  if (Platform.OS === 'web') {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      return { ok: false, reason: 'unsupported' };
+    }
+    const tryGet = (options: PositionOptions) =>
+      new Promise<GeoDetailed>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ ok: true, point: { latitude: pos.coords.latitude, longitude: pos.coords.longitude } }),
+          (err) => {
+            const reason: GeoReason =
+              err.code === err.PERMISSION_DENIED
+                ? 'denied'
+                : err.code === err.TIMEOUT
+                  ? 'timeout'
+                  : 'unavailable';
+            resolve({ ok: false, reason });
+          },
+          options
+        );
+      });
+    const precise = await tryGet({ enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+    if (precise.ok || precise.reason === 'denied') return precise;
+    return tryGet({ enableHighAccuracy: false, maximumAge: 60000, timeout: 12000 });
+  }
+
+  const { status } = await Location.requestForegroundPermissionsAsync();
+  if (status !== 'granted') return { ok: false, reason: 'denied' };
+  try {
+    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    return { ok: true, point: { latitude: loc.coords.latitude, longitude: loc.coords.longitude } };
+  } catch {
+    return { ok: false, reason: 'unavailable' };
+  }
+}

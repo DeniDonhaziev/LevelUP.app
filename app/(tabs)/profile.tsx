@@ -24,7 +24,8 @@ import { firebaseChangePassword } from '@/lib/firebase/authFlow';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTrackerStore } from '@/store/trackerStore';
 import { onboardingSummaryLine } from '@/lib/onboarding';
-import { getCurrentGeoPoint } from '@/lib/geolocation';
+import { requestGeoDetailed, type GeoReason } from '@/lib/geolocation';
+import { Platform } from 'react-native';
 
 export default function ProfileScreen() {
   const c = useThemeColors();
@@ -48,19 +49,35 @@ export default function ProfileScreen() {
   const [geoOk, setGeoOk] = useState<boolean | null>(null);
   const [geoText, setGeoText] = useState('');
 
+  function geoReasonHint(reason: GeoReason): string {
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+    const isMobile = Platform.OS !== 'web' || /Android|iPhone|iPad|iPod/i.test(ua);
+    switch (reason) {
+      case 'denied':
+        return isMobile
+          ? 'Доступ запрещён ранее. Android: меню браузера → «Настройки сайта» → Местоположение → Разрешить (или долгий тап по иконке приложения → Разрешения → Геолокация). iPhone: Настройки → Safari/приложение → Геопозиция → «При использовании». Затем нажмите ещё раз.'
+          : 'Доступ запрещён ранее. Нажмите значок 🔒 слева в адресной строке → «Местоположение» → «Разрешить», затем обновите страницу (Ctrl+Shift+R) и нажмите снова.';
+      case 'unavailable':
+        return 'Геолокация устройства выключена. Включите её (шторка → значок «Локация», или Настройки → Геопозиция) и нажмите ещё раз.';
+      case 'timeout':
+        return 'Не удалось определить за отведённое время. Попробуйте ещё раз — лучше у окна или на улице.';
+      case 'unsupported':
+      default:
+        return 'Это устройство или браузер не поддерживает геолокацию.';
+    }
+  }
+
   async function requestLocation() {
     setGeoBusy(true);
     setGeoText('');
     try {
-      const pt = await getCurrentGeoPoint();
-      if (pt) {
+      const res = await requestGeoDetailed();
+      if (res.ok) {
         setGeoOk(true);
-        setGeoText(`Доступ разрешён · ${pt.latitude.toFixed(4)}, ${pt.longitude.toFixed(4)}`);
+        setGeoText(`Доступ разрешён · ${res.point.latitude.toFixed(4)}, ${res.point.longitude.toFixed(4)}`);
       } else {
         setGeoOk(false);
-        setGeoText(
-          'Доступ не получен. Включите геолокацию на устройстве и разрешите её приложению, затем нажмите ещё раз.'
-        );
+        setGeoText(geoReasonHint(res.reason));
       }
     } finally {
       setGeoBusy(false);
