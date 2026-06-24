@@ -1336,6 +1336,7 @@ export const useTrackerStore = create<State>()(
         localAvatarDataUrl: s.localAvatarDataUrl,
         territories: s.territories,
         runHistory: s.runHistory,
+        runnerLeaderboard: s.runnerLeaderboard,
         clansById: s.clansById,
         clanMembersByClanId: s.clanMembersByClanId,
         clanMessagesByClanId: s.clanMessagesByClanId,

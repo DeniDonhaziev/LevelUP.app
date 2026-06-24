@@ -63,7 +63,6 @@ export function TerritoryMap({ region, lineColor, mine, currentTrack = [], userL
               coordinates={currentTrack.map((p) => ({ latitude: p[0], longitude: p[1] }))}
               strokeColor="#16181C"
               strokeWidth={5}
-              lineDashPattern={[1, 9]}
               lineCap="round"
               lineJoin="round"
             />

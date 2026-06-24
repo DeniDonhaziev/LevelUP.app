@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { View, Text, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 
 import { GroupedSection } from '@/components/ui/GroupedSection';
@@ -5,6 +6,8 @@ import { ScreenScroll } from '@/components/ui/ScreenScroll';
 import { TabScreenHeader } from '@/components/ui/TabScreenHeader';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { buildRunnerRanking, formatLength } from '@/lib/trackerLogic';
+import { isFirebaseConfigured } from '@/lib/firebase/config';
+import { loadRunnerLeaderboard } from '@/lib/firebase/runnerSync';
 import { useTrackerStore } from '@/store/trackerStore';
 
 export default function StatsScreen() {
@@ -15,6 +18,19 @@ export default function StatsScreen() {
   const territories = useTrackerStore((s) => s.territories);
   const runnerLeaderboard = useTrackerStore((s) => s.runnerLeaderboard);
   const userDataMap = useTrackerStore((s) => s.userData);
+  const setRunnerLeaderboard = useTrackerStore((s) => s.setRunnerLeaderboard);
+
+  // Подгружаем общий рейтинг при открытии экрана (на случай, если слушатель ещё не успел)
+  useEffect(() => {
+    if (!isFirebaseConfigured()) return;
+    let cancelled = false;
+    void loadRunnerLeaderboard().then((list) => {
+      if (!cancelled && list.length) setRunnerLeaderboard(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [setRunnerLeaderboard]);
 
   const ranking = buildRunnerRanking(runnerLeaderboard, userDataMap, territories);
   const runLeader = ranking[0]?.username;

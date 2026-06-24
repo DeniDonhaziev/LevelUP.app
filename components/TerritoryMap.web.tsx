@@ -132,8 +132,7 @@ export function TerritoryMap({
                 <Polyline
                   points={projected.map((p) => `${p.x},${p.y}`).join(' ')}
                   stroke="#16181C"
-                  strokeWidth={3}
-                  strokeDasharray="2 8"
+                  strokeWidth={4}
                   fill="none"
                   strokeLinecap="round"
                   strokeLinejoin="round"
