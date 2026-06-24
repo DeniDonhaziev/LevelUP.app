@@ -18,7 +18,8 @@
       "infoPlist": {
         "NSMotionUsageDescription": "Подсчёт шагов по акселерометру (как на сайте).",
         "NSLocationWhenInUseUsageDescription": "Запись GPS при беге и отображение территорий на карте.",
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": ["remote-notification"],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
