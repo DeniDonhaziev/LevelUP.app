@@ -40,7 +40,7 @@
       "favicon": "./assets/images/favicon.png",
       "name": "LevelUp",
       "shortName": "LevelUp",
-      "display": "standalone",
+      "display": "minimal-ui",
       "backgroundColor": "#FFFFFF",
       "themeColor": "#FFFFFF"
     },

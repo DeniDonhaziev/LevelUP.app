@@ -5,7 +5,7 @@
   "description": "Трекер привычек: спорт, IT, менеджмент и творчество",
   "start_url": "/",
   "scope": "/",
-  "display": "standalone",
+  "display": "minimal-ui",
   "orientation": "portrait",
   "background_color": "#FFFFFF",
   "theme_color": "#FFFFFF",
