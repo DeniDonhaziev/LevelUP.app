@@ -173,25 +173,6 @@ export type CyclistStat = {
   updatedAt: number;
 };
 
-/** История (stories) на главной — «прогресс дня», живёт 24 часа */
-export type Story = {
-  id: string;
-  uid: string;
-  username: string;
-  createdAt: number;
-  /** Когда истекает (createdAt + 24ч) */
-  expiresAt: number;
-  kind: 'progress' | 'text';
-  /** Подпись/текст истории */
-  text?: string;
-  /** Снимок прогресса дня */
-  steps?: number;
-  tasksDone?: number;
-  tasksTotal?: number;
-  streak?: number;
-  /** Акцентный цвет карточки */
-  accent?: string;
-};
 
 export type Territory = {
   id: string;

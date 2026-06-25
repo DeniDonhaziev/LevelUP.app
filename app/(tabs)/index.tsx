@@ -27,7 +27,6 @@ import { useTrackerStore, useUserData } from '@/store/trackerStore';
 import { WebTheme } from '@/lib/theme';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
 import { SectionTitle } from '@/components/ui/SectionTitle';
-import { StoriesRow } from '@/components/home/StoriesRow';
 
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
@@ -132,8 +131,6 @@ export default function HomeScreen() {
       />
 
       </Animated.View>
-
-      <StoriesRow />
 
       <SectionTitle title="Активности" subtitle={todayBadge} />
 
