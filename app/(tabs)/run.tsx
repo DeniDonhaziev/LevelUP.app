@@ -241,7 +241,7 @@ export default function RunScreen() {
         const profile = modeRef.current === 'bike' ? 'bike' : 'foot';
         roadPoints = await snapRouteToRoads(pts, { force: true, profile });
       }
-      const r = finishRun(pts, { startedAt, finishedAt, roadPoints });
+      const r = finishRun(pts, { startedAt, finishedAt, roadPoints, activity: modeRef.current });
       setDisplayTrack(roadPoints.length >= 2 ? roadPoints : pts);
       setResultMsg(r.message);
       setResultDetail(r.detail + (r.detail ? '\n' : '') + MODE_LABELS[modeRef.current].saved);

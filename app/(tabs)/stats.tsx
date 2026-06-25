@@ -8,6 +8,9 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { buildRunnerRanking, formatLength } from '@/lib/trackerLogic';
 import { isFirebaseConfigured } from '@/lib/firebase/config';
 import { loadRunnerLeaderboard } from '@/lib/firebase/runnerSync';
+import { loadCyclistLeaderboard } from '@/lib/firebase/cyclistSync';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { useState } from 'react';
 import { useTrackerStore } from '@/store/trackerStore';
 
 export default function StatsScreen() {
@@ -17,20 +20,38 @@ export default function StatsScreen() {
   const user = useTrackerStore((s) => s.currentUser);
   const territories = useTrackerStore((s) => s.territories);
   const runnerLeaderboard = useTrackerStore((s) => s.runnerLeaderboard);
+  const cyclistLeaderboard = useTrackerStore((s) => s.cyclistLeaderboard);
   const userDataMap = useTrackerStore((s) => s.userData);
   const setRunnerLeaderboard = useTrackerStore((s) => s.setRunnerLeaderboard);
+  const setCyclistLeaderboard = useTrackerStore((s) => s.setCyclistLeaderboard);
 
-  // Подгружаем общий рейтинг при открытии экрана (на случай, если слушатель ещё не успел)
+  const [mode, setMode] = useState<'run' | 'bike'>('run');
+
+  // Подгружаем общие рейтинги при открытии экрана (на случай, если слушатель ещё не успел)
   useEffect(() => {
     if (!isFirebaseConfigured()) return;
     let cancelled = false;
     void loadRunnerLeaderboard().then((list) => {
       if (!cancelled && list.length) setRunnerLeaderboard(list);
     });
+    void loadCyclistLeaderboard().then((list) => {
+      if (!cancelled && list.length) setCyclistLeaderboard(list);
+    });
     return () => {
       cancelled = true;
     };
-  }, [setRunnerLeaderboard]);
+  }, [setRunnerLeaderboard, setCyclistLeaderboard]);
+
+  // Рейтинг велосипедистов
+  const cyclistRows = [...cyclistLeaderboard]
+    .sort((a, b) => (b.totalBikeMeters || 0) - (a.totalBikeMeters || 0))
+    .map((s, idx) => ({
+      id: s.uid,
+      rank: idx + 1,
+      name: s.username || s.uid,
+      distance: formatLength(s.totalBikeMeters || 0),
+      rides: s.totalRides || 0,
+    }));
 
   const ranking = buildRunnerRanking(runnerLeaderboard, userDataMap, territories);
   const runLeader = ranking[0]?.username;
@@ -60,8 +81,55 @@ export default function StatsScreen() {
 
   return (
     <ScreenScroll>
-      <TabScreenHeader title="Рейтинг бегунов" subtitle="Таблица лидеров GPS" />
-      {isDesktopWeb ? (
+      <TabScreenHeader
+        title={mode === 'bike' ? 'Рейтинг велосипедистов' : 'Рейтинг бегунов'}
+        subtitle="Таблица лидеров GPS"
+      />
+      <View style={{ marginBottom: 14 }}>
+        <SegmentedControl
+          value={mode}
+          onChange={(k) => setMode(k as 'run' | 'bike')}
+          options={[
+            { key: 'run', label: '🏃 Бег' },
+            { key: 'bike', label: '🚴 Велосипед' },
+          ]}
+        />
+      </View>
+      {mode === 'bike' ? (
+        <GroupedSection title="Велолидеры">
+          <View style={styles.mobileList}>
+            <View style={styles.tableHeadRow}>
+              <Text style={[styles.tableTitle, { color: c.text }]}>Таблица велосипедистов</Text>
+              <View style={[styles.monthChip, { backgroundColor: c.accentSoft }]}>
+                <Text style={{ color: c.accent, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>Велозаезды GPS</Text>
+              </View>
+            </View>
+            {cyclistRows.length === 0 ? (
+              <Text style={{ color: c.muted, paddingVertical: 6 }}>Пока нет данных по велозаездам.</Text>
+            ) : (
+              cyclistRows.map((row) => (
+                <View key={row.id} style={[styles.mobileRow, { borderColor: c.border }]}>
+                  <View style={styles.mobileRowHead}>
+                    <View style={styles.userCell}>
+                      <View style={[styles.avatarDot, { backgroundColor: c.accentSoft, borderWidth: 1, borderColor: c.border }]}>
+                        <Text style={[styles.avatarLetter, { color: c.text }]}>{row.name.charAt(0).toUpperCase()}</Text>
+                      </View>
+                      <Text style={[styles.userName, { color: c.text }]} numberOfLines={1}>
+                        {row.rank}. {row.name}
+                        {row.name === user ? ' (вы)' : ''}
+                      </Text>
+                    </View>
+                    <Text style={[styles.tdNum, { color: c.text }]}>{row.distance}</Text>
+                  </View>
+                  <Text style={{ color: c.muted, fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 4 }}>
+                    Заездов: {row.rides}
+                  </Text>
+                </View>
+              ))
+            )}
+          </View>
+        </GroupedSection>
+      ) : isDesktopWeb ? (
         <View style={[styles.tableWrap, { backgroundColor: c.cardElevated, borderColor: c.border }]}>
           <View style={styles.tableHeadRow}>
             <Text style={[styles.tableTitle, { color: c.text }]}>Таблица лидеров</Text>

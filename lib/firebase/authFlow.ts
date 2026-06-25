@@ -22,6 +22,7 @@ import { syncMotivationSchedule } from '@/lib/notifications/runMotivation';
 
 import { pullClansFromCloud, stopClanListeners } from './clanListeners';
 import { startRunnerLeaderboardListener, stopRunnerLeaderboardListener } from './runnerListeners';
+import { startCyclistLeaderboardListener, stopCyclistLeaderboardListener } from './cyclistListeners';
 import { getFirebaseAuth } from './app';
 import { isFirebaseConfigured } from './config';
 import {
@@ -54,6 +55,7 @@ function startTerritoriesListener() {
 
 async function startSportListeners(uid: string): Promise<void> {
   startRunnerLeaderboardListener();
+  startCyclistLeaderboardListener();
   await pullClansFromCloud();
   if (await ensureNotificationPermission()) {
     const clanId = useTrackerStore.getState().getClanId();
@@ -98,6 +100,7 @@ export function subscribeToAuthChanges(): () => void {
     stopTerritoriesListener();
     stopClanListeners();
     stopRunnerLeaderboardListener();
+    stopCyclistLeaderboardListener();
     try {
       if (user?.email) {
         const [doc, terr] = await Promise.all([loadUserDocument(user.uid), loadTerritoriesCollection()]);
@@ -148,6 +151,7 @@ export function subscribeToAuthChanges(): () => void {
     stopTerritoriesListener();
     stopClanListeners();
     stopRunnerLeaderboardListener();
+    stopCyclistLeaderboardListener();
     unsubAuth();
   };
 }

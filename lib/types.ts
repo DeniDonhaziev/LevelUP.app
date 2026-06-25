@@ -152,6 +152,9 @@ export type UserData = {
   /** Суммарная дистанция пробежек (GPS) — рейтинг и кланы */
   totalRunMeters?: number;
   totalRuns?: number;
+  /** Суммарная дистанция велозаездов (GPS) — отдельный рейтинг */
+  totalBikeMeters?: number;
+  totalRides?: number;
 };
 
 export type RunnerStat = {
@@ -159,6 +162,14 @@ export type RunnerStat = {
   username: string;
   totalRunMeters: number;
   totalRuns: number;
+  updatedAt: number;
+};
+
+export type CyclistStat = {
+  uid: string;
+  username: string;
+  totalBikeMeters: number;
+  totalRides: number;
   updatedAt: number;
 };
 

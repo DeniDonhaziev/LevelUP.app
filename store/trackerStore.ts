@@ -60,8 +60,9 @@ import {
   syncMotivationSchedule,
 } from '@/lib/notifications/runMotivation';
 import { saveRunnerStat } from '@/lib/firebase/runnerSync';
+import { saveCyclistStat } from '@/lib/firebase/cyclistSync';
 import { saveTerritoriesCollection } from '@/lib/firebase/firestoreSync';
-import type { RunnerStat } from '@/lib/types';
+import type { CyclistStat, RunnerStat } from '@/lib/types';
 
 type State = {
   users: Record<string, string>;
@@ -94,6 +95,8 @@ type State = {
   activeClan: Clan | null;
   runnerLeaderboard: RunnerStat[];
   setRunnerLeaderboard: (list: RunnerStat[]) => void;
+  cyclistLeaderboard: CyclistStat[];
+  setCyclistLeaderboard: (list: CyclistStat[]) => void;
   login: (username: string, password: string) => boolean;
   register: (username: string, password: string, topicId?: TopicId) => string | null;
   resetLocalPassword: (username: string, newPassword: string) => string | null;
@@ -172,7 +175,7 @@ type State = {
   markAllTasksToday: () => void;
   finishRun: (
     points: [number, number][],
-    meta?: { startedAt?: number; finishedAt?: number; roadPoints?: [number, number][] }
+    meta?: { startedAt?: number; finishedAt?: number; roadPoints?: [number, number][]; activity?: 'run' | 'bike' }
   ) => {
     captured: Territory[];
     takenOver: Territory[];
@@ -194,6 +197,8 @@ function ensureUserData(raw: UserData | undefined): UserData {
     teamSyncAt: raw.teamSyncAt,
     totalRunMeters: raw.totalRunMeters,
     totalRuns: raw.totalRuns,
+    totalBikeMeters: raw.totalBikeMeters,
+    totalRides: raw.totalRides,
     accountingEntries: raw.accountingEntries || [],
     hrEmployees: raw.hrEmployees || [],
     warehouseItems: raw.warehouseItems || [],
@@ -343,6 +348,8 @@ export const useTrackerStore = create<State>()(
       activeClan: null,
       runnerLeaderboard: [],
       setRunnerLeaderboard: (list) => set({ runnerLeaderboard: list }),
+      cyclistLeaderboard: [],
+      setCyclistLeaderboard: (list) => set({ cyclistLeaderboard: list }),
 
       setAuthReady: (ready) => set({ authReady: ready }),
 
@@ -1398,9 +1405,15 @@ export const useTrackerStore = create<State>()(
         };
         const trimmedHistory = [runItem, ...get().runHistory].slice(0, 300);
         const metersRounded = Math.max(0, Math.round(distanceMeters));
+        const activity = meta?.activity ?? 'run';
         const ud = { ...get().getUserData(user) };
-        ud.totalRunMeters = (ud.totalRunMeters || 0) + metersRounded;
-        ud.totalRuns = (ud.totalRuns || 0) + 1;
+        if (activity === 'bike') {
+          ud.totalBikeMeters = (ud.totalBikeMeters || 0) + metersRounded;
+          ud.totalRides = (ud.totalRides || 0) + 1;
+        } else {
+          ud.totalRunMeters = (ud.totalRunMeters || 0) + metersRounded;
+          ud.totalRuns = (ud.totalRuns || 0) + 1;
+        }
         get().setUserData(user, ud);
         set({ territories: nextTerritories, runHistory: trimmedHistory });
         get().recordClanRun(metersRounded);
@@ -1417,9 +1430,15 @@ export const useTrackerStore = create<State>()(
           );
           const uid = st.firebaseUid;
           if (uid) {
-            void saveRunnerStat(uid, user, metersRounded).catch((e) =>
-              console.warn('saveRunnerStat:', e)
-            );
+            if (activity === 'bike') {
+              void saveCyclistStat(uid, user, metersRounded).catch((e) =>
+                console.warn('saveCyclistStat:', e)
+              );
+            } else {
+              void saveRunnerStat(uid, user, metersRounded).catch((e) =>
+                console.warn('saveRunnerStat:', e)
+              );
+            }
             void flushSaveUser(
               uid,
               user,
@@ -1471,6 +1490,7 @@ export const useTrackerStore = create<State>()(
         territories: s.territories,
         runHistory: s.runHistory,
         runnerLeaderboard: s.runnerLeaderboard,
+        cyclistLeaderboard: s.cyclistLeaderboard,
         clansById: s.clansById,
         clanMembersByClanId: s.clanMembersByClanId,
         clanMessagesByClanId: s.clanMessagesByClanId,
