@@ -172,6 +172,8 @@ function RootLayoutNav() {
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="admin" options={{ headerShown: false }} />
+        <Stack.Screen name="story-composer" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="story-viewer" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>
