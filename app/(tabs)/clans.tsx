@@ -37,6 +37,28 @@ const EMPTY_MESSAGES: ClanMessage[] = [];
 
 type TabKey = 'clan' | 'top';
 
+const AVATAR_COLORS = ['#C1FF00', '#64D2FF', '#FF9F0A', '#BF5AF2', '#FF6B6B', '#30D158', '#FFD60A'];
+function avatarColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+function medal(idx: number): string | null {
+  return idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null;
+}
+const CLAN_EMOJIS = ['🔥', '⚡', '🏆', '🐺', '🦁', '🚀', '💪', '⭐', '🎯', '🏃', '👑', '🛡️', '💎', '🐉', '⚔️', '🌟'];
+async function copyToClipboard(textValue: string): Promise<boolean> {
+  try {
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+      await navigator.clipboard.writeText(textValue);
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
 export default function ClansScreen() {
   const { width } = useWindowDimensions();
   const isDesktopWeb = Platform.OS === 'web' && width >= 1100;
@@ -64,6 +86,10 @@ export default function ClansScreen() {
   const joinClanByCode = useTrackerStore((s) => s.joinClanByCode);
   const leaveClan = useTrackerStore((s) => s.leaveClan);
   const sendClanMessage = useTrackerStore((s) => s.sendClanMessage);
+  const setMemberRole = useTrackerStore((s) => s.setMemberRole);
+  const editClanMessage = useTrackerStore((s) => s.editClanMessage);
+  const deleteClanMessage = useTrackerStore((s) => s.deleteClanMessage);
+  const setClanLogo = useTrackerStore((s) => s.setClanLogo);
 
   const [tab, setTab] = useState<TabKey>(clanId ? 'clan' : 'top');
   const [clanName, setClanName] = useState('');
@@ -71,9 +97,23 @@ export default function ClansScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showLogoPicker, setShowLogoPicker] = useState(false);
   const pageScrollRef = useRef<ScrollView>(null);
 
+  async function onCopyCode(code: string) {
+    const ok = await copyToClipboard(code);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  }
+
   const clan = activeClan ?? (clanId ? clansById[clanId] : null);
+  const myUid = firebaseUid ?? (currentUser ? `local:${currentUser}` : '');
+  const isOwner = !!clan && clan.ownerUid === myUid;
+  const myRole = clanMembers.find((m) => m.uid === myUid)?.role;
+  const canModerate = isOwner || myRole === 'motivator';
   const membersSorted: ClanMember[] = sortClanMembers(clanMembers);
   const topClans: Clan[] =
     clanLeaderboard.length > 0 ? clanLeaderboard : sortClansByKm(Object.values(clansById));
@@ -219,18 +259,27 @@ export default function ClansScreen() {
                     setTab('clan');
                   }}
                   style={[styles.topRow, { borderColor: c.border }]}>
-                  <Text style={[styles.topRank, { color: c.accent }]}>{idx + 1}</Text>
+                  {medal(idx) ? (
+                    <Text style={styles.medal}>{medal(idx)}</Text>
+                  ) : (
+                    <Text style={[styles.topRank, { color: c.muted, textAlign: 'center' }]}>{idx + 1}</Text>
+                  )}
+                  <View style={[styles.topEmblem, { backgroundColor: item.emoji ? c.cardElevated : item.id === clanId ? c.accent : c.cardElevated, borderColor: c.border }]}>
+                    <Text style={{ color: item.id === clanId ? '#16181C' : c.text, fontFamily: 'Inter_700Bold', fontSize: item.emoji ? 18 : 15 }}>
+                      {item.emoji || (item.name || '?').charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: c.text, fontFamily: 'Inter_700Bold', fontSize: 15 }}>
+                    <Text style={{ color: c.text, fontFamily: 'Inter_700Bold', fontSize: 15 }} numberOfLines={1}>
                       {item.name}
                       {item.id === clanId ? ' (ваш)' : ''}
                     </Text>
-                    <Text style={{ color: c.muted, fontSize: 12, marginTop: 2 }}>
+                    <Text style={{ color: c.muted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
                       {item.memberCount || 0} участн. · код {item.inviteCode}
-                      {!clanId ? ' · нажмите, чтобы вступить' : ''}
+                      {!clanId ? ' · вступить' : ''}
                     </Text>
                   </View>
-                  <Text style={{ color: c.text, fontFamily: 'Inter_700Bold' }}>
+                  <Text style={{ color: c.accent, fontFamily: 'Inter_700Bold' }}>
                     {formatLength(item.totalDistanceMeters || 0)}
                   </Text>
                 </Pressable>
@@ -270,10 +319,72 @@ export default function ClansScreen() {
         {tab === 'clan' && clanId && clan ? (
           <>
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: c.border }]}>
-              <Text style={[styles.section, { color: c.text }]}>{clan.name}</Text>
-              <Text style={{ color: c.muted, fontSize: 13, marginBottom: 12 }}>
-                Код приглашения: <Text style={{ fontFamily: 'Inter_700Bold', color: c.text }}>{clan.inviteCode}</Text>
-              </Text>
+              <View style={styles.clanHead}>
+                <Pressable
+                  disabled={!isOwner}
+                  onPress={() => setShowLogoPicker((v) => !v)}
+                  style={[styles.clanIcon, { backgroundColor: clan.emoji ? c.cardElevated : c.accent, borderColor: c.border, borderWidth: clan.emoji ? 1 : 0 }]}>
+                  {clan.emoji ? (
+                    <Text style={styles.clanEmojiBig}>{clan.emoji}</Text>
+                  ) : (
+                    <Text style={styles.clanEmblem}>{(clan.name || '?').charAt(0).toUpperCase()}</Text>
+                  )}
+                  {isOwner ? (
+                    <View style={[styles.editBadge, { backgroundColor: c.accent, borderColor: cardBg }]}>
+                      <Ionicons name="pencil" size={9} color="#16181C" />
+                    </View>
+                  ) : null}
+                </Pressable>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: c.text, fontFamily: 'Inter_700Bold', fontSize: 18 }} numberOfLines={1}>
+                    {clan.name}
+                  </Text>
+                  <Text style={{ color: c.muted, fontSize: 12, marginTop: 2 }}>
+                    {clan.memberCount || membersSorted.length} участников
+                    {isOwner ? ' · нажмите на логотип, чтобы сменить' : ''}
+                  </Text>
+                </View>
+              </View>
+
+              {isOwner && showLogoPicker ? (
+                <View style={[styles.emojiPicker, { borderColor: c.border, backgroundColor: c.cardElevated }]}>
+                  {CLAN_EMOJIS.map((em) => (
+                    <Pressable
+                      key={em}
+                      onPress={() => {
+                        void setClanLogo(em);
+                        setShowLogoPicker(false);
+                      }}
+                      style={({ pressed }) => [
+                        styles.emojiOption,
+                        {
+                          backgroundColor: clan.emoji === em ? c.accentSoft : 'transparent',
+                          borderColor: clan.emoji === em ? c.accent : 'transparent',
+                          opacity: pressed ? 0.7 : 1,
+                        },
+                      ]}>
+                      <Text style={{ fontSize: 22 }}>{em}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+              <Pressable
+                onPress={() => void onCopyCode(clan.inviteCode)}
+                style={({ pressed }) => [
+                  styles.codeChip,
+                  { backgroundColor: c.cardElevated, borderColor: c.border, opacity: pressed ? 0.8 : 1 },
+                ]}>
+                <Ionicons name="key-outline" size={15} color={c.accent} />
+                <Text style={{ color: c.muted, fontSize: 13 }}>Код:</Text>
+                <Text style={{ color: c.text, fontFamily: 'Inter_700Bold', fontSize: 14, letterSpacing: 1 }}>
+                  {clan.inviteCode}
+                </Text>
+                <View style={{ flex: 1 }} />
+                <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color={copied ? c.accent : c.muted} />
+                <Text style={{ color: copied ? c.accent : c.muted, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>
+                  {copied ? 'Скопировано' : 'Копировать'}
+                </Text>
+              </Pressable>
               <View style={styles.statRow}>
                 <View style={[styles.statBox, { borderColor: c.border }]}>
                   <Text style={{ color: c.muted, fontSize: 11 }}>Км клана</Text>
@@ -301,25 +412,86 @@ export default function ClansScreen() {
 
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: c.border }]}>
               <Text style={[styles.section, { color: c.text }]}>Участники</Text>
-              {membersSorted.map((m, idx) => (
-                <View key={m.uid} style={[styles.memberRow, { borderColor: c.border }]}>
-                  <Text style={[styles.topRank, { color: c.muted }]}>{idx + 1}</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: c.text, fontFamily: 'Inter_600SemiBold' }}>
-                      {m.username}
-                      {m.username === currentUser ? ' (вы)' : ''}
-                    </Text>
+              {membersSorted.map((m, idx) => {
+                const mine = m.username === currentUser;
+                const col = avatarColor(m.username || '?');
+                const md = medal(idx);
+                const canManage = isOwner && m.uid !== myUid && m.role !== 'owner';
+                return (
+                  <View key={m.uid} style={[styles.memberRow, { borderColor: c.border }]}>
+                    {md ? (
+                      <Text style={styles.medal}>{md}</Text>
+                    ) : (
+                      <Text style={[styles.topRank, { color: c.muted, textAlign: 'center' }]}>{idx + 1}</Text>
+                    )}
+                    <View style={[styles.memberAvatar, { backgroundColor: `${col}26`, borderColor: `${col}55` }]}>
+                      <Text style={{ color: col, fontFamily: 'Inter_700Bold', fontSize: 13 }}>
+                        {(m.username || '?').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={{ color: c.text, fontFamily: 'Inter_600SemiBold' }} numberOfLines={1}>
+                        {m.username}
+                        {mine ? ' (вы)' : ''}
+                      </Text>
+                      <View style={styles.roleRow}>
+                        {m.role === 'owner' ? (
+                          <View style={[styles.roleBadge, { backgroundColor: c.accentSoft }]}>
+                            <Ionicons name="ribbon" size={11} color={c.accent} />
+                            <Text style={[styles.roleText, { color: c.accent }]}>Владелец</Text>
+                          </View>
+                        ) : m.role === 'motivator' ? (
+                          <View style={[styles.roleBadge, { backgroundColor: 'rgba(100,210,255,0.15)' }]}>
+                            <Ionicons name="megaphone" size={11} color="#64D2FF" />
+                            <Text style={[styles.roleText, { color: '#64D2FF' }]}>Мотиватор</Text>
+                          </View>
+                        ) : (
+                          <Text style={{ color: c.muted, fontSize: 11 }}>Участник</Text>
+                        )}
+                        <Text style={{ color: mine ? c.accent : c.muted, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>
+                          · {formatLength(m.distanceMeters || 0)}
+                        </Text>
+                      </View>
+                    </View>
+                    {canManage ? (
+                      <Pressable
+                        onPress={() =>
+                          void setMemberRole(m.uid, m.role === 'motivator' ? 'member' : 'motivator')
+                        }
+                        style={({ pressed }) => [
+                          styles.roleBtn,
+                          {
+                            borderColor: m.role === 'motivator' ? c.border : '#64D2FF',
+                            backgroundColor: m.role === 'motivator' ? 'transparent' : 'rgba(100,210,255,0.12)',
+                            opacity: pressed ? 0.7 : 1,
+                          },
+                        ]}>
+                        <Ionicons
+                          name={m.role === 'motivator' ? 'remove-circle-outline' : 'megaphone-outline'}
+                          size={14}
+                          color={m.role === 'motivator' ? c.muted : '#64D2FF'}
+                        />
+                        <Text
+                          style={{
+                            color: m.role === 'motivator' ? c.muted : '#64D2FF',
+                            fontSize: 11,
+                            fontFamily: 'Inter_600SemiBold',
+                          }}>
+                          {m.role === 'motivator' ? 'Снять' : 'Мотиватор'}
+                        </Text>
+                      </Pressable>
+                    ) : null}
                   </View>
-                  <Text style={{ color: c.text, fontFamily: 'Inter_600SemiBold' }}>
-                    {formatLength(m.distanceMeters || 0)}
-                  </Text>
-                </View>
-              ))}
+                );
+              })}
             </View>
 
             <ClanChat
               messages={clanMessages}
               onSend={onSendMessage}
+              onEdit={(id, t) => editClanMessage(id, t)}
+              onDelete={(id) => deleteClanMessage(id)}
+              canModerate={canModerate}
               bubbleMaxWidth={bubbleMaxWidth}
             />
           </>
@@ -432,11 +604,87 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   topRank: { width: 28, fontFamily: 'Inter_700Bold', fontSize: 16 },
-  clanHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+  clanHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
   clanIcon: {
     width: 52,
     height: 52,
     borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clanEmblem: { color: '#16181C', fontFamily: 'Inter_700Bold', fontSize: 24 },
+  clanEmojiBig: { fontSize: 28 },
+  editBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiPicker: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 8,
+    marginBottom: 14,
+  },
+  emojiOption: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  codeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
+  },
+  medal: { width: 28, fontSize: 18, textAlign: 'center' },
+  memberAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  roleText: { fontSize: 10.5, fontFamily: 'Inter_700Bold' },
+  roleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+  },
+  topEmblem: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },

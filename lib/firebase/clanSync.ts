@@ -166,6 +166,17 @@ export async function leaveClanInFirestore(clanId: string, uid: string, isOwner:
 }
 
 /** Expo-токены участников клана (для push с телефона отправителя, без Cloud Functions). */
+export async function setClanMemberRole(
+  clanId: string,
+  uid: string,
+  role: ClanMember['role']
+): Promise<void> {
+  const memberRef = doc(getDb(), CLANS, clanId, 'members', uid);
+  const snap = await getDoc(memberRef);
+  if (!snap.exists()) return;
+  await updateDoc(memberRef, { role });
+}
+
 export async function updateClanMemberExpoPushToken(
   clanId: string,
   uid: string,
@@ -257,6 +268,53 @@ export async function sendClanMessageInFirestore(
     createdAt: msg.createdAt,
   });
   return msg;
+}
+
+export async function editClanMessageInFirestore(
+  clanId: string,
+  messageId: string,
+  text: string
+): Promise<void> {
+  const ref = doc(getDb(), CLANS, clanId, 'messages', messageId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  await updateDoc(ref, { text: text.trim(), editedAt: Date.now() });
+}
+
+export async function deleteClanMessageInFirestore(
+  clanId: string,
+  messageId: string
+): Promise<void> {
+  await deleteDoc(doc(getDb(), CLANS, clanId, 'messages', messageId));
+}
+
+/** Полное удаление клана (только админ): участники + сообщения + сам клан. */
+export async function adminDeleteClanInFirestore(clanId: string): Promise<void> {
+  const db = getDb();
+  const members = await getDocs(collection(db, CLANS, clanId, 'members'));
+  await Promise.all(members.docs.map((d) => deleteDoc(d.ref)));
+  const messages = await getDocs(collection(db, CLANS, clanId, 'messages'));
+  await Promise.all(messages.docs.map((d) => deleteDoc(d.ref)));
+  await deleteDoc(doc(db, CLANS, clanId));
+}
+
+/** Кик участника из клана (только админ): удаляет участника и обновляет счётчики. */
+export async function adminKickMemberInFirestore(
+  clanId: string,
+  uid: string,
+  isOwner: boolean
+): Promise<void> {
+  await leaveClanInFirestore(clanId, uid, isOwner);
+}
+
+export async function updateClanMeta(
+  clanId: string,
+  patch: Partial<Pick<Clan, 'emoji' | 'name'>>
+): Promise<void> {
+  const ref = doc(getDb(), CLANS, clanId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  await updateDoc(ref, patch);
 }
 
 export async function addClanRunDistance(

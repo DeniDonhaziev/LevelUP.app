@@ -14,9 +14,13 @@ import { generateInviteCode } from '@/lib/clanLogic';
 import {
   addClanRunDistance,
   createClanInFirestore,
+  deleteClanMessageInFirestore,
+  editClanMessageInFirestore,
   joinClanInFirestore,
   leaveClanInFirestore,
   sendClanMessageInFirestore,
+  setClanMemberRole,
+  updateClanMeta,
 } from '@/lib/firebase/clanSync';
 import { pullClansFromCloud } from '@/lib/firebase/clanListeners';
 import { saveTeamProjects, type TeamProjectsTopic } from '@/lib/firebase/firestoreSync';
@@ -30,6 +34,7 @@ import type {
   Clan,
   ClanMember,
   ClanMessage,
+  ClanRole,
   DevStage,
   HrEmployee,
   HrStatus,
@@ -107,7 +112,15 @@ type State = {
   createClan: (name: string) => Promise<string | null>;
   joinClanByCode: (code: string) => Promise<string | null>;
   leaveClan: () => Promise<string | null>;
+  /** Назначить/снять роль участнику (только владелец) */
+  setMemberRole: (targetUid: string, role: ClanRole) => Promise<string | null>;
+  /** Эмодзи-логотип клана (только владелец) */
+  setClanLogo: (emoji: string) => Promise<string | null>;
   sendClanMessage: (text: string) => Promise<string | null>;
+  /** Редактировать своё сообщение */
+  editClanMessage: (messageId: string, text: string) => Promise<string | null>;
+  /** Удалить сообщение (автор, владелец или мотиватор) */
+  deleteClanMessage: (messageId: string) => Promise<string | null>;
   recordClanRun: (distanceMeters: number) => void;
   logout: () => void;
   setAuthReady: (ready: boolean) => void;
@@ -365,7 +378,17 @@ export const useTrackerStore = create<State>()(
       setClanMessages: (clanId, messages) =>
         set((s) => {
           const prev = s.clanMessagesByClanId[clanId];
-          if (prev && prev.length === messages.length && prev.every((m, i) => m.id === messages[i]?.id)) {
+          // Учитываем не только id/длину, но и текст/editedAt — иначе правки не видны
+          if (
+            prev &&
+            prev.length === messages.length &&
+            prev.every(
+              (m, i) =>
+                m.id === messages[i]?.id &&
+                m.text === messages[i]?.text &&
+                m.editedAt === messages[i]?.editedAt
+            )
+          ) {
             return s;
           }
           return {
@@ -676,6 +699,32 @@ export const useTrackerStore = create<State>()(
         return null;
       },
 
+      setMemberRole: async (targetUid, role) => {
+        const user = get().currentUser;
+        if (!user) return 'Войдите в аккаунт';
+        const clanId = get().getUserData(user).clanId;
+        if (!clanId) return 'Вы не в клане';
+        const clan = get().clansById[clanId] ?? get().activeClan;
+        const myUid = memberUid(get().firebaseUid, user);
+        if (!clan || clan.ownerUid !== myUid) return 'Только владелец может менять роли';
+        if (targetUid === clan.ownerUid) return 'Нельзя изменить роль владельца';
+        if (role === 'owner') return 'Нельзя назначить владельца';
+        set((s) => {
+          const members = (s.clanMembersByClanId[clanId] || []).map((m) =>
+            m.uid === targetUid ? { ...m, role } : m
+          );
+          return { clanMembersByClanId: { ...s.clanMembersByClanId, [clanId]: members } };
+        });
+        if (isFirebaseConfigured() && get().firebaseUid) {
+          try {
+            await setClanMemberRole(clanId, targetUid, role);
+          } catch (e) {
+            console.warn('setMemberRole cloud:', e);
+          }
+        }
+        return null;
+      },
+
       sendClanMessage: async (text) => {
         const trimmed = text.trim();
         if (!trimmed) return 'Введите сообщение';
@@ -717,6 +766,91 @@ export const useTrackerStore = create<State>()(
             await notifyClanMembersOnMessage(user, trimmed, targets, clanId);
           } catch (e) {
             console.warn('sendClanMessage cloud:', e);
+          }
+        }
+        return null;
+      },
+
+      editClanMessage: async (messageId, text) => {
+        const trimmed = text.trim();
+        if (!trimmed) return 'Введите сообщение';
+        const user = get().currentUser;
+        if (!user) return 'Войдите в аккаунт';
+        const clanId = get().getUserData(user).clanId;
+        if (!clanId) return 'Вы не в клане';
+        const uid = memberUid(get().firebaseUid, user);
+        const msg = (get().clanMessagesByClanId[clanId] || []).find((m) => m.id === messageId);
+        if (!msg) return 'Сообщение не найдено';
+        if (msg.uid !== uid) return 'Можно редактировать только свои сообщения';
+        set((s) => ({
+          clanMessagesByClanId: {
+            ...s.clanMessagesByClanId,
+            [clanId]: (s.clanMessagesByClanId[clanId] || []).map((m) =>
+              m.id === messageId ? { ...m, text: trimmed, editedAt: Date.now() } : m
+            ),
+          },
+        }));
+        if (isFirebaseConfigured() && get().firebaseUid) {
+          try {
+            await editClanMessageInFirestore(clanId, messageId, trimmed);
+          } catch (e) {
+            console.warn('editClanMessage cloud:', e);
+          }
+        }
+        return null;
+      },
+
+      deleteClanMessage: async (messageId) => {
+        const user = get().currentUser;
+        if (!user) return 'Войдите в аккаунт';
+        const clanId = get().getUserData(user).clanId;
+        if (!clanId) return 'Вы не в клане';
+        const uid = memberUid(get().firebaseUid, user);
+        const clan = get().clansById[clanId] ?? get().activeClan;
+        const myRole = (get().clanMembersByClanId[clanId] || []).find((m) => m.uid === uid)?.role;
+        const msg = (get().clanMessagesByClanId[clanId] || []).find((m) => m.id === messageId);
+        if (!msg) return null;
+        const isModerator = clan?.ownerUid === uid || myRole === 'motivator';
+        if (msg.uid !== uid && !isModerator) return 'Нет прав удалить это сообщение';
+        set((s) => ({
+          clanMessagesByClanId: {
+            ...s.clanMessagesByClanId,
+            [clanId]: (s.clanMessagesByClanId[clanId] || []).filter((m) => m.id !== messageId),
+          },
+        }));
+        if (isFirebaseConfigured() && get().firebaseUid) {
+          try {
+            await deleteClanMessageInFirestore(clanId, messageId);
+          } catch (e) {
+            console.warn('deleteClanMessage cloud:', e);
+          }
+        }
+        return null;
+      },
+
+      setClanLogo: async (emoji) => {
+        const user = get().currentUser;
+        if (!user) return 'Войдите в аккаунт';
+        const clanId = get().getUserData(user).clanId;
+        if (!clanId) return 'Вы не в клане';
+        const clan = get().clansById[clanId] ?? get().activeClan;
+        const uid = memberUid(get().firebaseUid, user);
+        if (!clan || clan.ownerUid !== uid) return 'Только владелец может менять логотип';
+        set((s) => {
+          const prev = s.clansById[clanId];
+          const clansById = prev ? { ...s.clansById, [clanId]: { ...prev, emoji } } : s.clansById;
+          return {
+            clansById,
+            activeClan:
+              s.activeClan && s.activeClan.id === clanId ? { ...s.activeClan, emoji } : s.activeClan,
+            clanLeaderboard: rebuildLeaderboard(clansById),
+          };
+        });
+        if (isFirebaseConfigured() && get().firebaseUid) {
+          try {
+            await updateClanMeta(clanId, { emoji });
+          } catch (e) {
+            console.warn('setClanLogo cloud:', e);
           }
         }
         return null;

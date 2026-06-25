@@ -25,6 +25,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTrackerStore } from '@/store/trackerStore';
 import { onboardingSummaryLine } from '@/lib/onboarding';
 import { getGeoPermissionState, requestGeoDetailed, type GeoReason } from '@/lib/geolocation';
+import { isCurrentUserAdmin } from '@/lib/admin';
 import { Platform } from 'react-native';
 
 export default function ProfileScreen() {
@@ -35,6 +36,7 @@ export default function ProfileScreen() {
   const setLocalAvatarDataUrl = useTrackerStore((s) => s.setLocalAvatarDataUrl);
   const changeLocalPassword = useTrackerStore((s) => s.changeLocalPassword);
   const firebaseOn = isFirebaseConfigured();
+  const admin = isCurrentUserAdmin(user);
 
   const [name, setName] = useState(user ?? '');
   const [saving, setSaving] = useState(false);
@@ -197,6 +199,25 @@ export default function ProfileScreen() {
   return (
     <ScreenScroll keyboardShouldPersistTaps="handled">
       <TabScreenHeader title="Профиль" subtitle="Настройки и уведомления" showNotify={false} />
+
+      {admin ? (
+        <GroupedSection title="Администрирование">
+          <Pressable
+            onPress={() => router.push('/admin')}
+            style={({ pressed }) => [styles.anketaRow, { opacity: pressed ? 0.7 : 1 }]}>
+            <View style={[styles.anketaIcon, { backgroundColor: c.pastelMint }]}>
+              <Ionicons name="shield-checkmark" size={20} color={c.lime} />
+            </View>
+            <View style={styles.anketaBody}>
+              <Text style={[styles.anketaTitle, { color: c.text }]}>Админ-панель</Text>
+              <Text style={[styles.anketaSub, { color: c.muted }]} numberOfLines={1}>
+                Удаление кланов, сообщений, кик участников
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={c.muted} />
+          </Pressable>
+        </GroupedSection>
+      ) : null}
 
       <GroupedSection title="Анкета">
         <Pressable

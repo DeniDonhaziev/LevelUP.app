@@ -52,7 +52,7 @@ export type WarehouseItem = {
   location: string;
 };
 
-export type ClanRole = 'owner' | 'member';
+export type ClanRole = 'owner' | 'motivator' | 'member';
 
 export type Clan = {
   id: string;
@@ -63,6 +63,8 @@ export type Clan = {
   totalDistanceMeters: number;
   memberCount: number;
   createdAt: number;
+  /** Эмодзи-логотип клана */
+  emoji?: string;
 };
 
 export type ClanMember = {
@@ -84,6 +86,8 @@ export type ClanMessage = {
   username: string;
   text: string;
   createdAt: number;
+  /** Время последнего редактирования (ms) — если есть, показываем «изменено» */
+  editedAt?: number;
 };
 
 /** ── Анкета первичной регистрации (онбординг) ── */
