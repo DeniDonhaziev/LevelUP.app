@@ -200,6 +200,19 @@ export default function ProfileScreen() {
     <ScreenScroll keyboardShouldPersistTaps="handled">
       <TabScreenHeader title="Профиль" subtitle="Настройки и уведомления" showNotify={false} />
 
+      <GroupedSection title="Имя">
+        <View style={styles.nameBlock}>
+          <Text style={[styles.label, { color: c.muted }]}>Отображаемое имя</Text>
+          <AppInput
+            value={name}
+            onChangeText={setName}
+            placeholder="Ваше имя"
+            autoCapitalize="words"
+          />
+          <PrimaryButton label="Сохранить имя" loading={saving} onPress={() => void saveName()} />
+        </View>
+      </GroupedSection>
+
       {admin ? (
         <GroupedSection title="Администрирование">
           <Pressable
@@ -301,19 +314,6 @@ export default function ProfileScreen() {
               <Text style={[styles.removeLinkText, { color: c.danger }]}>Убрать фото</Text>
             </Pressable>
           ) : null}
-        </View>
-      </GroupedSection>
-
-      <GroupedSection title="Имя">
-        <View style={styles.nameBlock}>
-          <Text style={[styles.label, { color: c.muted }]}>Отображаемое имя</Text>
-          <AppInput
-            value={name}
-            onChangeText={setName}
-            placeholder="Ваше имя"
-            autoCapitalize="words"
-          />
-          <PrimaryButton label="Сохранить имя" loading={saving} onPress={() => void saveName()} />
         </View>
       </GroupedSection>
 

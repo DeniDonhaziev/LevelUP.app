@@ -9,6 +9,7 @@ import {
   loadClanLeaderboard,
   loadClanMembers,
   loadClanMessages,
+  subscribeClan,
   subscribeClanLeaderboard,
   subscribeClanMessages,
 } from './clanSync';
@@ -16,8 +17,54 @@ import type { Unsubscribe } from 'firebase/firestore';
 
 let detachChat: Unsubscribe | null = null;
 let detachLeaderboard: Unsubscribe | null = null;
+let detachMyClan: Unsubscribe | null = null;
+let myClanListenerId: string | null = null;
 let lastChatIds = new Set<string>();
 let chatListenerClanId: string | null = null;
+
+/** Следим за своим кланом: если его удалили — мгновенно убираем у участника. */
+export function startMyClanListener(clanId: string): void {
+  if (myClanListenerId === clanId && detachMyClan) return;
+  stopMyClanListener();
+  if (!isFirebaseConfigured()) return;
+  myClanListenerId = clanId;
+  detachMyClan = subscribeClan(clanId, (clan) => {
+    const store = useTrackerStore.getState();
+    if (clan === null) {
+      // Клан удалён — очищаем у этого пользователя
+      const user = store.currentUser;
+      store.setActiveClan(null);
+      useTrackerStore.setState((s) => {
+        const clansById = { ...s.clansById };
+        delete clansById[clanId];
+        const clanMembersByClanId = { ...s.clanMembersByClanId };
+        delete clanMembersByClanId[clanId];
+        const clanMessagesByClanId = { ...s.clanMessagesByClanId };
+        delete clanMessagesByClanId[clanId];
+        return { clansById, clanMembersByClanId, clanMessagesByClanId };
+      });
+      if (user) {
+        const data = store.getUserData(user);
+        if (data.clanId === clanId) store.setUserData(user, { ...data, clanId: null });
+      }
+      stopClanChatListener();
+      stopMyClanListener();
+      store.refreshClanState();
+      return;
+    }
+    // Клан жив — обновляем данные
+    store.setActiveClan(clan);
+    useTrackerStore.setState((s) => ({ clansById: { ...s.clansById, [clan.id]: clan } }));
+  });
+}
+
+export function stopMyClanListener(): void {
+  if (detachMyClan) {
+    detachMyClan();
+    detachMyClan = null;
+  }
+  myClanListenerId = null;
+}
 
 function restoreClanIdFromLocalCache(firebaseUid: string, username: string): string | null {
   const store = useTrackerStore.getState();
@@ -121,6 +168,7 @@ export async function pullClansFromCloud(): Promise<void> {
     }
     st.refreshClanState();
     startClanChatListener(clanId);
+    startMyClanListener(clanId);
   } catch (e) {
     console.warn('pullClansFromCloud clan:', e);
   }
@@ -184,6 +232,7 @@ export function stopClanLeaderboardListener(): void {
 export function stopClanListeners(): void {
   stopClanChatListener();
   stopClanLeaderboardListener();
+  stopMyClanListener();
 }
 
 /** @deprecated */
