@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { RingProgress } from '@/components/RingProgress';
+import { LevelCard } from '@/components/home/LevelCard';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { todayKey } from '@/lib/date';
 import { WebTheme } from '@/lib/theme';
@@ -85,6 +86,7 @@ export function HomeHero({
   const handle = user
     ? `@${user.toLowerCase().replace(/\s+/g, '.').slice(0, 22)}`
     : '@guest';
+  const distanceKm = ((data?.totalRunMeters ?? 0) / 1000).toFixed(1);
 
   const weekDays = useMemo(() => {
     const now = new Date();
@@ -139,6 +141,9 @@ export function HomeHero({
           </Pressable>
         </View>
       </View>
+
+      {/* Карта пользователя — как на финанс-дизайне */}
+      <LevelCard user={user || 'Гость'} level={level} points={points} streak={streak} distanceKm={distanceKm} />
 
       {/* Профиль по центру */}
       <View style={styles.profile}>
