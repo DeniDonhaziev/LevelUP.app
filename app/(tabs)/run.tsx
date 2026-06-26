@@ -80,6 +80,7 @@ export default function RunScreen() {
 
   const watchRef = useRef<Location.LocationSubscription | null>(null);
   const webWatchIdRef = useRef<number | null>(null);
+  const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
   const startTimeRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const trackRef = useRef(createGpsTrackState());
@@ -103,7 +104,12 @@ export default function RunScreen() {
 
   const onGpsFix = useCallback(
     (fix: GeoFix) => {
-      const { state, accepted } = acceptGpsPoint(trackRef.current, fix);
+      // Велосипед едет быстрее бега — ослабляем фильтр, иначе точки отбрасываются и трек обрывается
+      const acceptOpts =
+        modeRef.current === 'bike'
+          ? { maxSpeedMps: 25, maxJumpM: 250, minMoveM: 6 }
+          : undefined;
+      const { state, accepted } = acceptGpsPoint(trackRef.current, fix, acceptOpts);
       trackRef.current = state;
 
       setUserLocation({ latitude: fix.lat, longitude: fix.lon });
@@ -144,8 +150,25 @@ export default function RunScreen() {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    if (wakeLockRef.current) {
+      void wakeLockRef.current.release().catch(() => {});
+      wakeLockRef.current = null;
+    }
     setWatching(false);
   }, []);
+
+  // Не даём экрану гаснуть во время записи (иначе GPS на телефоне останавливается)
+  function requestWakeLock() {
+    if (typeof navigator === 'undefined') return;
+    const wl = (navigator as Navigator & { wakeLock?: { request: (t: string) => Promise<{ release: () => Promise<void> }> } }).wakeLock;
+    if (!wl) return;
+    void wl
+      .request('screen')
+      .then((sentinel) => {
+        wakeLockRef.current = sentinel;
+      })
+      .catch(() => {});
+  }
 
   useEffect(() => {
     if (!userLocation) return;
@@ -174,6 +197,7 @@ export default function RunScreen() {
     setGpsStatus('Ожидание GPS…');
     startTimeRef.current = Date.now();
     setWatching(true);
+    requestWakeLock();
 
     timerRef.current = setInterval(() => {
       const sec = Math.floor((Date.now() - startTimeRef.current) / 1000);
