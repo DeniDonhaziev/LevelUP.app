@@ -1,7 +1,8 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { WebTheme } from '@/lib/theme';
+import { Gradients, WebTheme } from '@/lib/theme';
 
 type Props = {
   label: string;
@@ -15,18 +16,17 @@ export function PrimaryButton({ label, onPress, loading, disabled, variant = 'pr
   const c = useThemeColors();
   const isGhost = variant === 'ghost';
   const isSecondary = variant === 'secondary';
+  const isPrimary = variant === 'primary';
 
-  const bg =
-    variant === 'primary'
-      ? c.accent
-      : isGhost
-        ? 'transparent'
-        : isSecondary
-          ? c.cardHover
-          : c.card;
-  const textColor = variant === 'primary' ? c.onAccent : isGhost ? c.accent : c.text;
-  const borderColor = variant === 'primary' ? c.accent : isGhost ? 'transparent' : c.border;
-  const borderWidth = variant === 'primary' || isGhost ? 0 : 1;
+  const textColor = isPrimary ? c.onAccent : isGhost ? c.accent : c.text;
+  const bg = isGhost ? 'transparent' : isSecondary ? c.cardHover : c.card;
+  const borderColor = isGhost ? 'transparent' : c.border;
+
+  const content = loading ? (
+    <ActivityIndicator color={textColor} />
+  ) : (
+    <Text style={[styles.label, { color: textColor }]}>{label}</Text>
+  );
 
   return (
     <Pressable
@@ -34,20 +34,25 @@ export function PrimaryButton({ label, onPress, loading, disabled, variant = 'pr
       onPress={onPress}
       style={({ pressed }) => [
         styles.wrap,
+        isPrimary && !disabled ? WebTheme.shadowGlow : null,
         {
-          backgroundColor: bg,
-          borderColor,
-          borderWidth: isSecondary ? StyleSheet.hairlineWidth : borderWidth,
-          opacity: disabled ? 0.5 : pressed ? 0.9 : 1,
+          opacity: disabled ? 0.5 : 1,
+          transform: [{ scale: pressed && !disabled ? 0.98 : 1 }],
         },
       ]}>
-      <View style={styles.btn}>
-        {loading ? (
-          <ActivityIndicator color={textColor} />
-        ) : (
-          <Text style={[styles.label, { color: textColor }]}>{label}</Text>
-        )}
-      </View>
+      {isPrimary ? (
+        <LinearGradient colors={Gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.btn}>
+          {content}
+        </LinearGradient>
+      ) : (
+        <View
+          style={[
+            styles.btn,
+            { backgroundColor: bg, borderColor, borderWidth: isGhost ? 0 : StyleSheet.hairlineWidth },
+          ]}>
+          {content}
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -56,14 +61,15 @@ const styles = StyleSheet.create({
   wrap: {
     borderRadius: WebTheme.radiusLg,
     overflow: 'hidden',
-    minHeight: 50,
+    minHeight: 52,
     justifyContent: 'center',
   },
   btn: {
-    paddingVertical: 14,
+    paddingVertical: 15,
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 52,
   },
   label: {
     fontSize: 16,

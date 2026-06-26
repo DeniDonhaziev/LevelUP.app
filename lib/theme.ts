@@ -20,18 +20,18 @@ export const WebTheme = {
   chartTeal: Dark.lime,
   chartPurple: '#BF5AF2',
   chartRose: Dark.danger,
-  radiusXl: 28,
-  radiusLg: 22,
-  radius: 18,
-  radiusSm: 14,
-  radiusXs: 10,
+  radiusXl: 30,
+  radiusLg: 24,
+  radius: 20,
+  radiusSm: 16,
+  radiusXs: 12,
   navHeight: 82,
   shadowSoft: {
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.32,
+    shadowRadius: 28,
+    elevation: 10,
   },
   shadowGlow: {
     shadowColor: Dark.lime,
@@ -64,8 +64,10 @@ export const Spacing = {
 } as const;
 
 export const Gradients = {
-  primary: [Dark.lime, '#9ECC00'] as const,
+  primary: [Dark.lime, '#A6E000'] as const,
   hero: [Dark.cardElevated, Dark.bg] as const,
   screen: [Dark.bgSoft, Dark.bg, Dark.bgSoft] as const,
   accentGlow: [Dark.limeGlow, 'rgba(193, 255, 0, 0)'] as const,
+  /** Лёгкий верхний блик для карточек (премиум-полировка) */
+  cardSheen: ['rgba(255, 255, 255, 0.05)', 'rgba(255, 255, 255, 0)'] as const,
 } as const;
