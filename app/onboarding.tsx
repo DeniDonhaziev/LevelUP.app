@@ -308,11 +308,21 @@ export default function OnboardingScreen() {
 
   function finish() {
     const now = Date.now();
+    // История веса: добавляем запись при первом заполнении и при изменении веса
+    const history = [...(existing?.weightHistory ?? [])];
+    if (history.length === 0 && existing?.weightKg) {
+      history.push({ kg: existing.weightKg, at: existing.updatedAt ?? existing.completedAt ?? now });
+    }
+    const lastKg = history[history.length - 1]?.kg;
+    if (profile.weightKg > 0 && lastKg !== profile.weightKg) {
+      history.push({ kg: profile.weightKg, at: now });
+    }
     saveOnboarding({
       ...profile,
       completed: true,
       completedAt: existing?.completedAt ?? now,
       updatedAt: now,
+      weightHistory: history.slice(-30),
     });
     if (isEdit) {
       router.back();

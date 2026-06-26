@@ -131,6 +131,8 @@ export type OnboardingProfile = {
   stepGoal: StepGoal;
   consentAiInformational: boolean;
   consentConsultSpecialist: boolean;
+  /** История веса по датам заполнения/редактирования анкеты (для прогресса) */
+  weightHistory?: { kg: number; at: number }[];
 };
 
 export type UserData = {

@@ -14,7 +14,9 @@ import type { TopicId } from '@/lib/topics';
  * Переопределение: EXPO_PUBLIC_OPENROUTER_MODEL_MAIN / _VISION
  */
 export const OPENROUTER_MODEL_MAIN = 'deepseek/deepseek-chat';
-export const OPENROUTER_MODEL_VISION = 'nvidia/nemotron-nano-12b-v2-vl:free';
+/** Сильная бесплатная vision-модель — точнее оценивает еду/калории.
+ *  При недоступности можно переопределить EXPO_PUBLIC_OPENROUTER_MODEL_VISION. */
+export const OPENROUTER_MODEL_VISION = 'google/gemini-2.0-flash-exp:free';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const TIMEOUT_MS = 120_000;

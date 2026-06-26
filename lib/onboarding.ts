@@ -211,6 +211,22 @@ export function buildAiProfileContext(profile?: OnboardingProfile | null): strin
   const lines: string[] = [];
   lines.push(`Имя: ${profile.name}.`);
   lines.push(`Возраст: ${profile.age}, рост: ${profile.heightCm} см, вес: ${profile.weightKg} кг.`);
+  // Прогресс по весу из истории анкеты
+  const wh = profile.weightHistory ?? [];
+  if (wh.length >= 2) {
+    const first = wh[0].kg;
+    const prev = wh[wh.length - 2].kg;
+    const curr = profile.weightKg;
+    const dTotal = Math.round((curr - first) * 10) / 10;
+    const dLast = Math.round((curr - prev) * 10) / 10;
+    const word = (d: number) => (d > 0 ? `набрал ${Math.abs(d)} кг` : d < 0 ? `сбросил ${Math.abs(d)} кг` : 'без изменений');
+    lines.push(
+      `ПРОГРЕСС ПО ВЕСУ (есть результат — обязательно отметь его в начале ответа, поддержи): ` +
+        `с первого заполнения ${first} → ${curr} кг (${word(dTotal)}); ` +
+        `с прошлого раза ${prev} → ${curr} кг (${word(dLast)}). ` +
+        `Скажи это пользователю простыми словами, например «Вижу, у вас есть результат — вы ${word(dLast)}».`
+    );
+  }
   lines.push(`Уровень активности: ${ACTIVITY_RU[profile.activityLevel]}.`);
   if (profile.goals.length) lines.push(`Цели: ${profile.goals.map((g) => GOAL_RU[g]).join(', ')}.`);
   lines.push(`Беговой объём: ${RUN_RU[profile.runVolume]}.`);
