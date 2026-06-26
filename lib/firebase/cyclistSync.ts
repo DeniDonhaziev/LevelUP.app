@@ -1,9 +1,14 @@
-import { collection, doc, getDocs, increment, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, increment, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 
 import type { CyclistStat } from '@/lib/types';
 import { getDb } from './app';
 
 const CYCLIST_STATS = 'cyclistStats';
+
+/** Удалить участника из рейтинга велосипедистов (только админ). */
+export async function deleteCyclistStat(uid: string): Promise<void> {
+  await deleteDoc(doc(getDb(), CYCLIST_STATS, uid));
+}
 
 export async function saveCyclistStat(uid: string, username: string, deltaMeters: number): Promise<void> {
   const meters = Math.max(0, Math.round(deltaMeters));

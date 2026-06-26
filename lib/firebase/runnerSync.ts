@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDocs,
   increment,
@@ -10,6 +11,13 @@ import {
 
 import type { RunnerStat } from '@/lib/types';
 import { getDb } from './app';
+
+const RUNNER_STATS_COLLECTION = 'runnerStats';
+
+/** Удалить участника из рейтинга бегунов (только админ). */
+export async function deleteRunnerStat(uid: string): Promise<void> {
+  await deleteDoc(doc(getDb(), RUNNER_STATS_COLLECTION, uid));
+}
 
 const RUNNER_STATS = 'runnerStats';
 

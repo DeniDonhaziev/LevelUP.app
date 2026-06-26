@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { View, Text, StyleSheet, Platform, useWindowDimensions } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { GroupedSection } from '@/components/ui/GroupedSection';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
@@ -7,11 +8,24 @@ import { TabScreenHeader } from '@/components/ui/TabScreenHeader';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { buildRunnerRanking, formatLength } from '@/lib/trackerLogic';
 import { isFirebaseConfigured } from '@/lib/firebase/config';
-import { loadRunnerLeaderboard } from '@/lib/firebase/runnerSync';
-import { loadCyclistLeaderboard } from '@/lib/firebase/cyclistSync';
+import { loadRunnerLeaderboard, deleteRunnerStat } from '@/lib/firebase/runnerSync';
+import { loadCyclistLeaderboard, deleteCyclistStat } from '@/lib/firebase/cyclistSync';
+import { isCurrentUserAdmin } from '@/lib/admin';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { useState } from 'react';
 import { useTrackerStore } from '@/store/trackerStore';
+
+function confirmDelete(name: string): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    return Promise.resolve(typeof window !== 'undefined' ? window.confirm(`Удалить ${name} из рейтинга?`) : false);
+  }
+  return new Promise((resolve) => {
+    Alert.alert('Удалить из рейтинга?', name, [
+      { text: 'Отмена', style: 'cancel', onPress: () => resolve(false) },
+      { text: 'Удалить', style: 'destructive', onPress: () => resolve(true) },
+    ]);
+  });
+}
 
 export default function StatsScreen() {
   const { width } = useWindowDimensions();
@@ -24,8 +38,40 @@ export default function StatsScreen() {
   const userDataMap = useTrackerStore((s) => s.userData);
   const setRunnerLeaderboard = useTrackerStore((s) => s.setRunnerLeaderboard);
   const setCyclistLeaderboard = useTrackerStore((s) => s.setCyclistLeaderboard);
+  const admin = isCurrentUserAdmin(user);
 
   const [mode, setMode] = useState<'run' | 'bike'>('run');
+
+  async function onDeleteRunner(uid: string, name: string) {
+    if (!(await confirmDelete(name))) return;
+    setRunnerLeaderboard(runnerLeaderboard.filter((r) => r.uid !== uid));
+    try {
+      await deleteRunnerStat(uid);
+    } catch (e) {
+      Alert.alert('Ошибка', (e as Error).message ?? 'Не удалось удалить');
+    }
+  }
+
+  async function onDeleteCyclist(uid: string, name: string) {
+    if (!(await confirmDelete(name))) return;
+    setCyclistLeaderboard(cyclistLeaderboard.filter((r) => r.uid !== uid));
+    try {
+      await deleteCyclistStat(uid);
+    } catch (e) {
+      Alert.alert('Ошибка', (e as Error).message ?? 'Не удалось удалить');
+    }
+  }
+
+  function DeleteBtn({ onPress }: { onPress: () => void }) {
+    return (
+      <Pressable
+        onPress={onPress}
+        hitSlop={8}
+        style={({ pressed }) => [styles.delBtn, { borderColor: c.danger, opacity: pressed ? 0.6 : 1 }]}>
+        <Ionicons name="trash-outline" size={14} color={c.danger} />
+      </Pressable>
+    );
+  }
 
   // Подгружаем общие рейтинги при открытии экрана (на случай, если слушатель ещё не успел)
   useEffect(() => {
@@ -120,6 +166,7 @@ export default function StatsScreen() {
                       </Text>
                     </View>
                     <Text style={[styles.tdNum, { color: c.text }]}>{row.distance}</Text>
+                    {admin ? <DeleteBtn onPress={() => void onDeleteCyclist(row.id, row.name)} /> : null}
                   </View>
                   <Text style={{ color: c.muted, fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 4 }}>
                     Заездов: {row.rides}
@@ -172,6 +219,9 @@ export default function StatsScreen() {
                 <Text style={[styles.tdTags, { color: c.muted }]} numberOfLines={2}>
                   {row.tags.length ? row.tags.join(' · ') : '—'}
                 </Text>
+                {admin && !row.id.startsWith('local:') ? (
+                  <DeleteBtn onPress={() => void onDeleteRunner(row.id, row.name)} />
+                ) : null}
               </View>
             ))
           )}
@@ -200,6 +250,9 @@ export default function StatsScreen() {
                       {row.name === user ? ' (вы)' : ''}
                     </Text>
                   </View>
+                  {admin && !row.id.startsWith('local:') ? (
+                    <DeleteBtn onPress={() => void onDeleteRunner(row.id, row.name)} />
+                  ) : null}
                 </View>
                 <View style={styles.mobileStats}>
                   <Text style={[styles.mobileStat, { color: c.muted }]}>Дороги: <Text style={{ color: c.text }}>{row.roads}</Text></Text>
@@ -260,4 +313,13 @@ const styles = StyleSheet.create({
   avatarLetter: { fontSize: 12, fontFamily: 'Inter_700Bold' },
   userName: { flex: 1, fontSize: 13, fontFamily: 'Inter_600SemiBold' },
   heroTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', marginBottom: 8 },
+  delBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
 });
