@@ -8,8 +8,10 @@ import {
   TextInput,
   Pressable,
   Platform,
+  ScrollView,
   useWindowDimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { ActivityTaskRow } from '@/components/ActivityTaskRow';
 import { HomeHero } from '@/components/home/HomeHero';
@@ -25,13 +27,31 @@ import {
 } from '@/lib/trackerLogic';
 import { useTrackerStore, useUserData } from '@/store/trackerStore';
 import { WebTheme } from '@/lib/theme';
-import { ScreenScroll } from '@/components/ui/ScreenScroll';
 import { SectionTitle } from '@/components/ui/SectionTitle';
+
+/** Светлая пастельная палитра для главной (как на референсе) */
+const LIGHT_HOME = {
+  text: '#17171C',
+  muted: '#6E6E78',
+  background: '#F3ECF2',
+  backgroundAlt: '#F3ECF2',
+  card: '#FFFFFF',
+  cardElevated: '#FFFFFF',
+  cardHover: '#F1ECF4',
+  border: 'rgba(20,20,30,0.08)',
+  onAccent: '#0A0A0B',
+  accentSoft: 'rgba(193,255,0,0.20)',
+  pastelMint: 'rgba(193,255,0,0.20)',
+};
 
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const isDesktopWeb = Platform.OS === 'web' && width >= 1100;
-  const c = useThemeColors();
+  const themeColors = useThemeColors();
+  const c = useMemo(
+    () => ({ ...themeColors, ...LIGHT_HOME }) as typeof themeColors,
+    [themeColors]
+  );
   const topic = useAppTopic();
   const data = useUserData();
   const syncNewDay = useTrackerStore((s) => s.syncNewDay);
@@ -107,7 +127,27 @@ export default function HomeScreen() {
   }, [entrance]);
 
   return (
-    <ScreenScroll nestedScrollEnabled withMobileGrowFix={!isDesktopWeb}>
+    <View style={{ flex: 1 }}>
+      <LinearGradient
+        colors={['#FBE8DC', '#F5E4EE', '#E9E6F6']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <ScrollView
+        style={{ flex: 1 }}
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          { padding: 16, paddingBottom: 120, gap: 16 },
+          isDesktopWeb && {
+            width: '100%' as const,
+            maxWidth: 1220,
+            alignSelf: 'center' as const,
+            paddingHorizontal: 24,
+          },
+        ]}>
       <Animated.View
         style={{
           opacity: entrance,
@@ -128,6 +168,7 @@ export default function HomeScreen() {
         doneToday={doneToday}
         totalTasks={totalTasks}
         achievedDays={achievedDays}
+        palette={c}
       />
 
       </Animated.View>
@@ -288,7 +329,8 @@ export default function HomeScreen() {
           </Text>
         </Pressable>
     </View>
-    </ScreenScroll>
+      </ScrollView>
+    </View>
   );
 }
 

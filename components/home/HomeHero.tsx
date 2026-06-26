@@ -9,6 +9,8 @@ import { WebTheme } from '@/lib/theme';
 import type { UserData } from '@/lib/types';
 import { selectAvatarDisplayUri, useTrackerStore } from '@/store/trackerStore';
 
+type Palette = ReturnType<typeof useThemeColors>;
+
 type Props = {
   data: UserData | null;
   streak: number;
@@ -17,6 +19,8 @@ type Props = {
   doneToday: number;
   totalTasks: number;
   achievedDays: number;
+  /** Светлая/тёмная палитра для главной (по умолчанию — тема приложения) */
+  palette?: Palette;
 };
 
 function greeting(): string {
@@ -32,13 +36,14 @@ function Chip({
   label,
   active,
   onPress,
+  c,
 }: {
   count: number;
   label: string;
   active?: boolean;
   onPress: () => void;
+  c: Palette;
 }) {
-  const c = useThemeColors();
   return (
     <Pressable
       onPress={onPress}
@@ -58,8 +63,9 @@ function Chip({
   );
 }
 
-export function HomeHero({ data, doneToday, totalTasks }: Props) {
-  const c = useThemeColors();
+export function HomeHero({ data, doneToday, totalTasks, palette }: Props) {
+  const themeC = useThemeColors();
+  const c = palette ?? themeC;
   const user = useTrackerStore((s) => s.currentUser);
   const avatarUri = useTrackerStore((s) => selectAvatarDisplayUri(s));
 
@@ -125,9 +131,9 @@ export function HomeHero({ data, doneToday, totalTasks }: Props) {
       </View>
 
       <View style={styles.chipsRow}>
-        <Chip count={todoCount} label="К выполнению" active onPress={goActivity} />
-        <Chip count={doneToday} label="Готово" onPress={goActivity} />
-        <Chip count={totalTasks} label="Всего" onPress={goActivity} />
+        <Chip count={todoCount} label="К выполнению" active onPress={goActivity} c={c} />
+        <Chip count={doneToday} label="Готово" onPress={goActivity} c={c} />
+        <Chip count={totalTasks} label="Всего" onPress={goActivity} c={c} />
       </View>
 
       {/* Выделенная задача */}
