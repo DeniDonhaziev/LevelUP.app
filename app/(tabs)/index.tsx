@@ -10,6 +10,7 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { ActivityTaskRow } from '@/components/ActivityTaskRow';
 import { HomeHero } from '@/components/home/HomeHero';
@@ -46,6 +47,7 @@ export default function HomeScreen() {
   const [newTask, setNewTask] = useState('');
   const [viewMonth, setViewMonth] = useState(() => new Date().getMonth());
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const entrance = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(
@@ -88,6 +90,21 @@ export default function HomeScreen() {
 
   const dayMarked = data ? isDayMarkedAchievement(data, today) : false;
   const allDone = data ? allTasksDoneToday(data) : true;
+
+  // Просмотр целей за выбранный день
+  const tasksById = new Map((data?.tasks || []).map((t) => [t.id, t.name]));
+  const selectedDoneIds = selectedDay ? data?.dailyDone[selectedDay] || [] : [];
+  const selectedDoneNames = selectedDoneIds.map((id) => tasksById.get(id) || 'Удалённая цель');
+  const selectedMarked = selectedDay && data ? isDayMarkedAchievement(data, selectedDay) : false;
+  function fmtDay(iso: string): string {
+    const [y, m, d] = iso.split('-').map(Number);
+    return `${d} ${MONTHS_RU[(m || 1) - 1]} ${y}`;
+  }
+  function yesterdayKey(): string {
+    const dt = new Date();
+    dt.setDate(dt.getDate() - 1);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  }
 
   function dayStatusText() {
     if (!data) return '';
@@ -235,9 +252,10 @@ export default function HomeScreen() {
       </View>
       <View style={styles.calGrid}>
         {calendarCells.map((cell) => (
-          <View
+          <Pressable
             key={cell.dateStr + '-' + cell.day + (cell.otherMonth ? '-o' : '')}
-            style={[
+            onPress={() => setSelectedDay(cell.dateStr)}
+            style={({ pressed }) => [
               styles.calCell,
               {
                 borderColor: border,
@@ -246,9 +264,10 @@ export default function HomeScreen() {
                   : cell.missed
                     ? 'rgba(248, 113, 113, 0.12)'
                     : c.cardElevated,
-                opacity: cell.otherMonth ? 0.4 : 1,
+                opacity: cell.otherMonth ? 0.4 : pressed ? 0.7 : 1,
               },
               cell.isToday && { borderColor: c.accent, borderWidth: 2 },
+              cell.dateStr === selectedDay && { borderColor: c.text, borderWidth: 2 },
             ]}>
             <Text
               style={{
@@ -258,8 +277,46 @@ export default function HomeScreen() {
               }}>
               {cell.day}
             </Text>
-          </View>
+          </Pressable>
         ))}
+      </View>
+
+      {/* Цели за выбранный день */}
+      <View style={[styles.dayGoals, { borderColor: border, backgroundColor: c.cardElevated }]}>
+        <View style={styles.dayGoalsHead}>
+          <Text style={{ color: c.text, fontFamily: 'Inter_700Bold', fontSize: 15 }}>
+            {selectedDay ? `Цели за ${fmtDay(selectedDay)}` : 'Цели за день'}
+          </Text>
+          <Pressable
+            onPress={() => setSelectedDay(yesterdayKey())}
+            style={[styles.yBtn, { borderColor: c.border, backgroundColor: c.cardHover }]}>
+            <Text style={{ color: c.text, fontSize: 13, fontFamily: 'Inter_500Medium' }}>Вчера</Text>
+          </Pressable>
+        </View>
+        {!selectedDay ? (
+          <Text style={{ color: c.muted, fontSize: 13, lineHeight: 19 }}>
+            Нажмите на день в календаре (или «Вчера»), чтобы увидеть выполненные цели.
+          </Text>
+        ) : selectedDoneNames.length === 0 ? (
+          <Text style={{ color: c.muted, fontSize: 13, lineHeight: 19 }}>
+            В этот день выполненных целей нет{selectedMarked ? ', но день отмечен как удачный ✓' : '.'}
+          </Text>
+        ) : (
+          <>
+            <Text style={{ color: c.muted, fontSize: 12, marginBottom: 8 }}>
+              Выполнено: {selectedDoneNames.length}
+              {selectedMarked ? ' · день отмечен ✓' : ''}
+            </Text>
+            {selectedDoneNames.map((name, i) => (
+              <View key={i} style={styles.dayGoalRow}>
+                <Ionicons name="checkmark-circle" size={18} color={c.accent} />
+                <Text style={{ color: c.text, fontSize: 14, flex: 1 }} numberOfLines={2}>
+                  {name}
+                </Text>
+              </View>
+            ))}
+          </>
+        )}
       </View>
 
       <View style={[styles.markBlock, { borderColor: border, backgroundColor: c.cardElevated }]}>
@@ -596,4 +653,8 @@ const styles = StyleSheet.create({
   markBlock: { marginTop: 16, padding: 20, borderRadius: 22, borderWidth: 1 },
   markDayBtn: { borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   markDayBtnText: { fontFamily: 'Inter_700Bold', fontSize: 16 },
+  dayGoals: { marginTop: 12, padding: 16, borderRadius: 18, borderWidth: 1, gap: 4 },
+  dayGoalsHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  yBtn: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  dayGoalRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
 });
