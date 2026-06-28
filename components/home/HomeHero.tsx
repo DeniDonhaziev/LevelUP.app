@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { RingProgress } from '@/components/RingProgress';
@@ -118,6 +118,16 @@ export function HomeHero({
 
   const streakMarks = Math.min(streak, 5);
 
+  // Цели за выбранный день недели
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const tasksById = new Map((data?.tasks || []).map((t) => [t.id, t.name]));
+  const selectedNames = selectedDay
+    ? (data?.dailyDone[selectedDay] || []).map((id) => tasksById.get(id) || 'Удалённая цель')
+    : [];
+  const selectedLabel = selectedDay
+    ? weekDays.find((d) => d.iso === selectedDay)?.label
+    : null;
+
   return (
     <View style={styles.root}>
       {/* Toolbar как на макете */}
@@ -204,12 +214,17 @@ export function HomeHero({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.weekScroll}>
         {weekDays.map((d) => (
-          <View
+          <Pressable
             key={d.iso}
-            style={[
+            onPress={() => setSelectedDay((prev) => (prev === d.iso ? null : d.iso))}
+            style={({ pressed }) => [
               styles.weekPill,
-              { backgroundColor: c.card, borderColor: d.isToday ? c.accent : c.border },
-              d.isToday && styles.weekPillActive,
+              {
+                backgroundColor: c.card,
+                borderColor: d.iso === selectedDay ? c.text : d.isToday ? c.accent : c.border,
+                opacity: pressed ? 0.8 : 1,
+              },
+              (d.isToday || d.iso === selectedDay) && styles.weekPillActive,
             ]}>
             <View style={styles.weekDotsRow}>
               {(d.isToday ? [0, 1, 2] : [0]).map((i) => (
@@ -233,9 +248,30 @@ export function HomeHero({
             </View>
             <Text style={[styles.weekPillDay, { color: c.muted }]}>{d.label}</Text>
             <Text style={[styles.weekPillNum, { color: c.text }]}>{d.day}</Text>
-          </View>
+          </Pressable>
         ))}
       </ScrollView>
+
+      {/* Цели за выбранный день (тап по дню недели) */}
+      {selectedDay ? (
+        <View style={[styles.dayGoals, { backgroundColor: c.card, borderColor: c.border }]}>
+          <Text style={[styles.dayGoalsTitle, { color: c.text }]}>
+            Цели за {selectedLabel}
+          </Text>
+          {selectedNames.length === 0 ? (
+            <Text style={{ color: c.muted, fontSize: 13 }}>В этот день выполненных целей нет.</Text>
+          ) : (
+            selectedNames.map((name, i) => (
+              <View key={i} style={styles.dayGoalRow}>
+                <Ionicons name="checkmark-circle" size={17} color={c.accent} />
+                <Text style={{ color: c.text, fontSize: 14, flex: 1 }} numberOfLines={2}>
+                  {name}
+                </Text>
+              </View>
+            ))
+          )}
+        </View>
+      ) : null}
 
       {/* Friends + Keep it up */}
       <View style={styles.row2}>
@@ -418,6 +454,9 @@ const styles = StyleSheet.create({
   weekDot: { width: 4, height: 4, borderRadius: 2 },
   weekPillDay: { fontSize: 11, fontFamily: 'Inter_500Medium' },
   weekPillNum: { fontSize: 16, fontFamily: 'Inter_700Bold' },
+  dayGoals: { borderRadius: WebTheme.radius, borderWidth: 1, padding: 14, gap: 6 },
+  dayGoalsTitle: { fontSize: 14, fontFamily: 'Inter_700Bold', marginBottom: 4 },
+  dayGoalRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
   row2: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
   dashCard: {
     flex: 1,
