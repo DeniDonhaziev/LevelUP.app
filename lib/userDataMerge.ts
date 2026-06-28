@@ -105,6 +105,8 @@ export function mergeUserData(local: UserData, cloud: UserData): UserData {
     lastVisit: [l.lastVisit, c.lastVisit].filter(Boolean).sort().pop() || l.lastVisit || c.lastVisit,
     totalRunMeters: Math.max(l.totalRunMeters ?? 0, c.totalRunMeters ?? 0) || undefined,
     totalRuns: Math.max(l.totalRuns ?? 0, c.totalRuns ?? 0) || undefined,
+    totalBikeMeters: Math.max(l.totalBikeMeters ?? 0, c.totalBikeMeters ?? 0) || undefined,
+    totalRides: Math.max(l.totalRides ?? 0, c.totalRides ?? 0) || undefined,
   };
 }
 

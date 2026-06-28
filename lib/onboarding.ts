@@ -210,7 +210,8 @@ export function buildAiProfileContext(profile?: OnboardingProfile | null): strin
   if (!profile?.completed) return '';
   const lines: string[] = [];
   lines.push(`Имя: ${profile.name}.`);
-  lines.push(`Возраст: ${profile.age}, рост: ${profile.heightCm} см, вес: ${profile.weightKg} кг.`);
+  const genderRu = profile.gender === 'male' ? 'мужской' : profile.gender === 'female' ? 'женский' : 'не указан';
+  lines.push(`Пол: ${genderRu}, возраст: ${profile.age}, рост: ${profile.heightCm} см, вес: ${profile.weightKg} кг.`);
   // Прогресс по весу из истории анкеты
   const wh = profile.weightHistory ?? [];
   if (wh.length >= 2) {

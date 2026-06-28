@@ -12,14 +12,12 @@ import {
 import type { RunnerStat } from '@/lib/types';
 import { getDb } from './app';
 
-const RUNNER_STATS_COLLECTION = 'runnerStats';
+const RUNNER_STATS = 'runnerStats';
 
 /** Удалить участника из рейтинга бегунов (только админ). */
 export async function deleteRunnerStat(uid: string): Promise<void> {
-  await deleteDoc(doc(getDb(), RUNNER_STATS_COLLECTION, uid));
+  await deleteDoc(doc(getDb(), RUNNER_STATS, uid));
 }
-
-const RUNNER_STATS = 'runnerStats';
 
 export async function saveRunnerStat(
   uid: string,

@@ -62,11 +62,14 @@ exports.broadcastPush = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  const key = req.headers['x-broadcast-key'] || req.query.key;
-  const expected =
-    process.env.BROADCAST_KEY ||
-    process.env.FUNCTIONS_BROADCAST_KEY ||
-    'levelup-broadcast-2026';
+  // Ключ только из заголовка (не из query — он утекает в логи/Referer)
+  const key = req.headers['x-broadcast-key'];
+  const expected = process.env.BROADCAST_KEY || process.env.FUNCTIONS_BROADCAST_KEY;
+  // Fail-closed: без заданного секрета функция недоступна (раньше был хардкод-дефолт)
+  if (!expected) {
+    res.status(500).json({ error: 'broadcast key not configured' });
+    return;
+  }
   if (key !== expected) {
     res.status(403).json({ error: 'forbidden' });
     return;

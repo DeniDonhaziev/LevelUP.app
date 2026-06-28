@@ -28,7 +28,7 @@ export function TrackerSummaryWidget({ stepsToday, streak, userName }: Props) {
       />
       <TextWidget
         text={`Серия: ${streak} дн.`}
-        style={{ color: 'rgba(255,255,255,0.86)', fontSize: 13, marginTop: 6 }}
+        style={{ color: '#FFFFFFDB', fontSize: 13, marginTop: 6 }}
       />
     </FlexWidget>
   );

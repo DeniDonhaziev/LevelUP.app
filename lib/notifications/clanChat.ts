@@ -69,13 +69,14 @@ export async function showClanMessageNotification(from: string, text: string): P
 
   if ('Notification' in window && Notification.permission === 'granted') {
     try {
-      const n = new Notification(title, {
+      const opts: NotificationOptions & { renotify?: boolean } = {
         body,
         icon: '/icon-192.png',
         badge: '/icon-192.png',
         tag: 'clan-chat',
         renotify: true,
-      });
+      };
+      const n = new Notification(title, opts);
       n.onclick = () => {
         window.focus();
         n.close();

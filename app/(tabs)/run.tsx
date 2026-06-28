@@ -81,6 +81,7 @@ export default function RunScreen() {
   const watchRef = useRef<Location.LocationSubscription | null>(null);
   const webWatchIdRef = useRef<number | null>(null);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
+  const visListenerRef = useRef<(() => void) | null>(null);
   const startTimeRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const trackRef = useRef(createGpsTrackState());
@@ -154,6 +155,10 @@ export default function RunScreen() {
       void wakeLockRef.current.release().catch(() => {});
       wakeLockRef.current = null;
     }
+    if (visListenerRef.current && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', visListenerRef.current);
+      visListenerRef.current = null;
+    }
     setWatching(false);
   }, []);
 
@@ -198,6 +203,14 @@ export default function RunScreen() {
     startTimeRef.current = Date.now();
     setWatching(true);
     requestWakeLock();
+    // Браузер сбрасывает Wake Lock при сворачивании/гашении экрана — переустанавливаем при возврате
+    if (typeof document !== 'undefined') {
+      const onVis = () => {
+        if (document.visibilityState === 'visible') requestWakeLock();
+      };
+      document.addEventListener('visibilitychange', onVis);
+      visListenerRef.current = onVis;
+    }
 
     timerRef.current = setInterval(() => {
       const sec = Math.floor((Date.now() - startTimeRef.current) / 1000);

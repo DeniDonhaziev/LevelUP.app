@@ -12,7 +12,7 @@ export const screenLayout = {
     flexGrow: 0,
   },
   scrollDesktop: {
-    width: '100%',
+    width: '100%' as const,
     maxWidth: 1220,
     alignSelf: 'center' as const,
     paddingHorizontal: Spacing.xl,

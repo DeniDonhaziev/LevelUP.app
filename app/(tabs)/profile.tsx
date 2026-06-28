@@ -172,6 +172,7 @@ export default function ProfileScreen() {
   }
 
   async function savePassword() {
+    if (!user) return;
     if (newPassword !== confirmPassword) {
       Alert.alert('Ошибка', 'Новые пароли не совпадают');
       return;

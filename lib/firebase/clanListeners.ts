@@ -129,6 +129,25 @@ export async function pullClansFromCloud(): Promise<void> {
 
   try {
     let clan = await loadClan(clanId);
+
+    // Клан удалён в облаке — не перевступаем, очищаем локальное состояние
+    if (!clan) {
+      store.setActiveClan(null);
+      useTrackerStore.setState((s) => {
+        const clansById = { ...s.clansById };
+        delete clansById[clanId];
+        const clanMembersByClanId = { ...s.clanMembersByClanId };
+        delete clanMembersByClanId[clanId];
+        const clanMessagesByClanId = { ...s.clanMessagesByClanId };
+        delete clanMessagesByClanId[clanId];
+        return { clansById, clanMembersByClanId, clanMessagesByClanId };
+      });
+      const data = store.getUserData(username);
+      if (data.clanId === clanId) store.setUserData(username, { ...data, clanId: null });
+      store.refreshClanState();
+      return;
+    }
+
     let members = await loadClanMembers(clanId);
     const inClan = members.some((m) => m.uid === firebaseUid);
 
@@ -136,7 +155,6 @@ export async function pullClansFromCloud(): Promise<void> {
       try {
         await joinClanInFirestore(clanId, firebaseUid, username);
         members = await loadClanMembers(clanId);
-        if (!clan) clan = await loadClan(clanId);
       } catch (e) {
         console.warn('restore clan membership:', e);
       }

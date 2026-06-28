@@ -242,9 +242,25 @@ function extractJsonObject<T extends object>(text: string): T | null {
     v = tryParse(block[1].trim());
     if (v) return v;
   }
-  const brace = trimmed.match(/\{[\s\S]*\}/);
-  if (brace) return tryParse(brace[0]);
-  return null;
+  // Модель может сначала «рассуждать» и вывести несколько объектов — берём ПОСЛЕДНИЙ валидный
+  let lastValid: T | null = null;
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+    if (ch === '{') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === '}') {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        const cand = tryParse(trimmed.slice(start, i + 1));
+        if (cand) lastValid = cand;
+        start = -1;
+      }
+    }
+  }
+  return lastValid;
 }
 
 function toApiMessages(thread: ChatMessage[]): { role: 'user' | 'assistant'; content: string }[] {

@@ -888,7 +888,7 @@ export const useTrackerStore = create<State>()(
       },
 
       hydrateTeamProjects: (topic, projects, remoteUpdatedAt = 0) => {
-        const key = getSharedProjectsStorageKey(topic);
+        const key = getSharedProjectsStorageKey(topic as unknown as TopicId);
         if (!key) return;
         const team = ensureUserData(get().userData[key]);
         const existing = team.projects || [];
@@ -1135,16 +1135,13 @@ export const useTrackerStore = create<State>()(
         const user = get().currentUser;
         if (!user) return;
         const topicId = get().getTopicId(user);
-        const mapProjects = (projects: Project[]) =>
+        const mapProjects = (projects: Project[]): Project[] =>
           projects.map((p) => {
             if (p.id !== projectId) return p;
             if (!canEditProject(p, topicId, user, get().firebaseUid)) return p;
             const next = Math.min(100, Math.max(0, p.progress + delta));
-            return {
-              ...p,
-              progress: next,
-              status: next >= 100 ? 'done' : p.status === 'done' ? 'active' : p.status,
-            };
+            const status: ProjectStatus = next >= 100 ? 'done' : p.status === 'done' ? 'active' : p.status;
+            return { ...p, progress: next, status };
           });
         if (usesSharedProjects(topicId)) {
           const team = getSharedTeamData(get, topicId);
