@@ -31,6 +31,8 @@ import { nextDevStage, normalizeDevStage } from '@/lib/projectStages';
 import type {
   AccountingEntry,
   AccountingKind,
+  AiChat,
+  AiChatMessage,
   Clan,
   ClanMember,
   ClanMessage,
@@ -97,6 +99,12 @@ type State = {
   setRunnerLeaderboard: (list: RunnerStat[]) => void;
   cyclistLeaderboard: CyclistStat[];
   setCyclistLeaderboard: (list: CyclistStat[]) => void;
+  /** Сохранённые чаты с ИИ */
+  aiChats: AiChat[];
+  activeAiChatId: string | null;
+  setActiveAiChat: (id: string | null) => void;
+  saveAiChat: (messages: AiChatMessage[]) => void;
+  deleteAiChat: (id: string) => void;
   login: (username: string, password: string) => boolean;
   register: (username: string, password: string, topicId?: TopicId) => string | null;
   resetLocalPassword: (username: string, newPassword: string) => string | null;
@@ -350,6 +358,32 @@ export const useTrackerStore = create<State>()(
       setRunnerLeaderboard: (list) => set({ runnerLeaderboard: list }),
       cyclistLeaderboard: [],
       setCyclistLeaderboard: (list) => set({ cyclistLeaderboard: list }),
+      aiChats: [],
+      activeAiChatId: null,
+      setActiveAiChat: (id) => set({ activeAiChatId: id }),
+      saveAiChat: (messages) => {
+        if (!messages.length) return;
+        set((s) => {
+          const now = Date.now();
+          const title =
+            messages.find((m) => m.role === 'user')?.content.slice(0, 48) || 'Новый чат';
+          let id = s.activeAiChatId;
+          let chats = [...s.aiChats];
+          const idx = id ? chats.findIndex((c) => c.id === id) : -1;
+          if (idx >= 0) {
+            chats[idx] = { ...chats[idx], messages, updatedAt: now };
+          } else {
+            id = 'chat' + now;
+            chats = [{ id, title, messages, updatedAt: now }, ...chats];
+          }
+          return { aiChats: chats.slice(0, 50), activeAiChatId: id };
+        });
+      },
+      deleteAiChat: (id) =>
+        set((s) => ({
+          aiChats: s.aiChats.filter((c) => c.id !== id),
+          activeAiChatId: s.activeAiChatId === id ? null : s.activeAiChatId,
+        })),
 
       setAuthReady: (ready) => set({ authReady: ready }),
 
@@ -1488,6 +1522,8 @@ export const useTrackerStore = create<State>()(
         runHistory: s.runHistory,
         runnerLeaderboard: s.runnerLeaderboard,
         cyclistLeaderboard: s.cyclistLeaderboard,
+        aiChats: s.aiChats,
+        activeAiChatId: s.activeAiChatId,
         clansById: s.clansById,
         clanMembersByClanId: s.clanMembersByClanId,
         clanMessagesByClanId: s.clanMessagesByClanId,

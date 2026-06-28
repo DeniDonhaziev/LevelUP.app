@@ -167,6 +167,15 @@ export type RunnerStat = {
   updatedAt: number;
 };
 
+/** Сохранённый чат с ИИ (как в ChatGPT) */
+export type AiChatMessage = { role: 'user' | 'assistant'; content: string };
+export type AiChat = {
+  id: string;
+  title: string;
+  messages: AiChatMessage[];
+  updatedAt: number;
+};
+
 export type CyclistStat = {
   uid: string;
   username: string;

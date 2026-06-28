@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
 import { AppInput } from '@/components/ui/AppInput';
@@ -53,7 +54,18 @@ export default function AiScreen() {
   const [foodRawFallback, setFoodRawFallback] = useState<string | null>(null);
   const [foodError, setFoodError] = useState<string | null>(null);
 
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  // Сохранённые чаты (как в ChatGPT)
+  const aiChats = useTrackerStore((s) => s.aiChats);
+  const activeAiChatId = useTrackerStore((s) => s.activeAiChatId);
+  const saveAiChat = useTrackerStore((s) => s.saveAiChat);
+  const setActiveAiChat = useTrackerStore((s) => s.setActiveAiChat);
+  const deleteAiChat = useTrackerStore((s) => s.deleteAiChat);
+
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
+    const st = useTrackerStore.getState();
+    return (st.aiChats.find((ch) => ch.id === st.activeAiChatId)?.messages as ChatMessage[]) ?? [];
+  });
+  const [showHistory, setShowHistory] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [typingMessageIndex, setTypingMessageIndex] = useState<number | null>(null);
@@ -148,13 +160,29 @@ export default function AiScreen() {
       const st = useTrackerStore.getState();
       const profile = st.currentUser ? st.userData[st.currentUser]?.onboarding : undefined;
       const reply = await coachChat(thread, goal, topic.id, buildAiProfileContext(profile));
-      setChatMessages((m) => [...m, { role: 'assistant', content: reply }]);
+      const withReply = [...thread, { role: 'assistant' as const, content: reply }];
+      setChatMessages(withReply);
+      saveAiChat(withReply); // сохраняем чат (как в ChatGPT)
     } catch (e) {
       setFoodError((e as Error).message ?? 'Ошибка чата');
     } finally {
       setChatLoading(false);
     }
-  }, [chatInput, chatLoading, chatMessages, goal, topic.id]);
+  }, [chatInput, chatLoading, chatMessages, goal, topic.id, saveAiChat]);
+
+  function newChat() {
+    setActiveAiChat(null);
+    setChatMessages([]);
+    setShowHistory(false);
+  }
+
+  function openChat(id: string) {
+    const chat = aiChats.find((ch) => ch.id === id);
+    if (!chat) return;
+    setActiveAiChat(id);
+    setChatMessages(chat.messages as ChatMessage[]);
+    setShowHistory(false);
+  }
 
   useEffect(() => {
     const lastIndex = chatMessages.length - 1;
@@ -329,9 +357,52 @@ export default function AiScreen() {
           </View>
         ) : null}
 
-        <Text style={[styles.section, { color: c.text, marginTop: 8 }]}>
-          {topic.aiCoachSectionTitle}
-        </Text>
+        <View style={styles.chatHeadRow}>
+          <Text style={[styles.section, { color: c.text }]}>{topic.aiCoachSectionTitle}</Text>
+          <View style={styles.chatHeadBtns}>
+            <Pressable
+              onPress={() => setShowHistory((v) => !v)}
+              style={[styles.chatHeadBtn, { borderColor: c.border, backgroundColor: cardBg }]}>
+              <Ionicons name="time-outline" size={16} color={c.text} />
+              <Text style={[styles.chatHeadBtnText, { color: c.text }]}>История{aiChats.length ? ` (${aiChats.length})` : ''}</Text>
+            </Pressable>
+            <Pressable
+              onPress={newChat}
+              style={[styles.chatHeadBtn, { borderColor: c.accent, backgroundColor: c.accentSoft }]}>
+              <Ionicons name="add" size={16} color={c.accent} />
+              <Text style={[styles.chatHeadBtnText, { color: c.accent }]}>Новый</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {showHistory ? (
+          <View style={[styles.histPanel, { borderColor: c.border, backgroundColor: cardBg }]}>
+            {aiChats.length === 0 ? (
+              <Text style={{ color: c.muted, fontSize: 13, padding: 4 }}>Сохранённых чатов пока нет.</Text>
+            ) : (
+              aiChats.map((ch) => (
+                <View key={ch.id} style={styles.histRow}>
+                  <Pressable onPress={() => openChat(ch.id)} style={styles.histOpen}>
+                    <Ionicons
+                      name="chatbubble-ellipses-outline"
+                      size={16}
+                      color={ch.id === activeAiChatId ? c.accent : c.muted}
+                    />
+                    <Text
+                      style={{ color: ch.id === activeAiChatId ? c.accent : c.text, fontSize: 14, flex: 1 }}
+                      numberOfLines={1}>
+                      {ch.title || 'Чат'}
+                    </Text>
+                  </Pressable>
+                  <Pressable onPress={() => deleteAiChat(ch.id)} hitSlop={8} style={styles.histDel}>
+                    <Ionicons name="trash-outline" size={15} color={c.muted} />
+                  </Pressable>
+                </View>
+              ))
+            )}
+          </View>
+        ) : null}
+
         {chatMessages.map((msg, i) => (
           <View
             key={i}
@@ -401,6 +472,22 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 26, fontFamily: 'Inter_700Bold', marginBottom: 6 },
   section: { fontSize: 16, fontFamily: 'Inter_600SemiBold', marginTop: 20, marginBottom: 10 },
+  chatHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  chatHeadBtns: { flexDirection: 'row', gap: 8 },
+  chatHeadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  chatHeadBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  histPanel: { borderWidth: 1, borderRadius: 16, padding: 8, marginTop: 8, marginBottom: 4, gap: 2 },
+  histRow: { flexDirection: 'row', alignItems: 'center' },
+  histOpen: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 6 },
+  histDel: { padding: 8 },
   bubble: {
     borderRadius: 18,
     borderWidth: 1,
