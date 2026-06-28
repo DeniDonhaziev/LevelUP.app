@@ -34,6 +34,7 @@ import type {
   AiChat,
   AiChatMessage,
   Clan,
+  FoodEntry,
   ClanMember,
   ClanMessage,
   ClanRole,
@@ -105,6 +106,10 @@ type State = {
   setActiveAiChat: (id: string | null) => void;
   saveAiChat: (messages: AiChatMessage[]) => void;
   deleteAiChat: (id: string) => void;
+  /** Журнал калорий (анализ еды) */
+  foodLog: FoodEntry[];
+  addFoodEntry: (e: Omit<FoodEntry, 'id' | 'at'>) => void;
+  deleteFoodEntry: (id: string) => void;
   login: (username: string, password: string) => boolean;
   register: (username: string, password: string, topicId?: TopicId) => string | null;
   resetLocalPassword: (username: string, newPassword: string) => string | null;
@@ -384,6 +389,12 @@ export const useTrackerStore = create<State>()(
           aiChats: s.aiChats.filter((c) => c.id !== id),
           activeAiChatId: s.activeAiChatId === id ? null : s.activeAiChatId,
         })),
+      foodLog: [],
+      addFoodEntry: (e) =>
+        set((s) => ({
+          foodLog: [{ id: 'food' + Date.now(), at: Date.now(), ...e }, ...s.foodLog].slice(0, 200),
+        })),
+      deleteFoodEntry: (id) => set((s) => ({ foodLog: s.foodLog.filter((f) => f.id !== id) })),
 
       setAuthReady: (ready) => set({ authReady: ready }),
 
@@ -1524,6 +1535,7 @@ export const useTrackerStore = create<State>()(
         cyclistLeaderboard: s.cyclistLeaderboard,
         aiChats: s.aiChats,
         activeAiChatId: s.activeAiChatId,
+        foodLog: s.foodLog,
         clansById: s.clansById,
         clanMembersByClanId: s.clanMembersByClanId,
         clanMessagesByClanId: s.clanMessagesByClanId,

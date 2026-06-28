@@ -167,6 +167,17 @@ export type RunnerStat = {
   updatedAt: number;
 };
 
+/** Запись в журнале калорий (анализ еды ИИ) */
+export type FoodEntry = {
+  id: string;
+  at: number;
+  foods: string;
+  calories: number | null;
+  protein: number | null;
+  fat: number | null;
+  carbs: number | null;
+};
+
 /** Сохранённый чат с ИИ (как в ChatGPT) */
 export type AiChatMessage = { role: 'user' | 'assistant'; content: string };
 export type AiChat = {

@@ -61,6 +61,11 @@ export default function AiScreen() {
   const setActiveAiChat = useTrackerStore((s) => s.setActiveAiChat);
   const deleteAiChat = useTrackerStore((s) => s.deleteAiChat);
 
+  // Журнал калорий
+  const foodLog = useTrackerStore((s) => s.foodLog);
+  const addFoodEntry = useTrackerStore((s) => s.addFoodEntry);
+  const deleteFoodEntry = useTrackerStore((s) => s.deleteFoodEntry);
+
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
     const st = useTrackerStore.getState();
     return (st.aiChats.find((ch) => ch.id === st.activeAiChatId)?.messages as ChatMessage[]) ?? [];
@@ -78,10 +83,21 @@ export default function AiScreen() {
 
   const runFoodAnalysis = useCallback(
     async (parsed: { parsed: FoodAnalysisResult | null; raw: string }) => {
-      if (parsed.parsed) setFoodResult(parsed.parsed);
-      else setFoodRawFallback(parsed.raw);
+      if (parsed.parsed) {
+        setFoodResult(parsed.parsed);
+        // Сохраняем в журнал калорий
+        addFoodEntry({
+          foods: parsed.parsed.foods_ru,
+          calories: parsed.parsed.calories,
+          protein: parsed.parsed.protein_g,
+          fat: parsed.parsed.fat_g,
+          carbs: parsed.parsed.carbs_g,
+        });
+      } else {
+        setFoodRawFallback(parsed.raw);
+      }
     },
-    []
+    [addFoodEntry]
   );
 
   const pickImage = useCallback(
@@ -227,6 +243,12 @@ export default function AiScreen() {
 
   const cardBg = scheme === 'dark' ? c.cardHover : c.card;
 
+  // Сумма калорий за сегодня
+  const todayStartMs = new Date(new Date().setHours(0, 0, 0, 0)).getTime();
+  const todayKcal = foodLog
+    .filter((f) => f.at >= todayStartMs)
+    .reduce((sum, f) => sum + (f.calories || 0), 0);
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -357,6 +379,38 @@ export default function AiScreen() {
           </View>
         ) : null}
 
+        {/* Журнал калорий */}
+        {foodLog.length > 0 ? (
+          <View style={{ marginTop: 8 }}>
+            <View style={styles.chatHeadRow}>
+              <Text style={[styles.section, { color: c.text }]}>Журнал калорий</Text>
+              <View style={[styles.kcalChip, { backgroundColor: c.accentSoft }]}>
+                <Text style={{ color: c.accent, fontSize: 13, fontFamily: 'Inter_700Bold' }}>
+                  сегодня ~{Math.round(todayKcal)} ккал
+                </Text>
+              </View>
+            </View>
+            {foodLog.slice(0, 12).map((f) => (
+              <View key={f.id} style={[styles.foodRow, { borderColor: c.border, backgroundColor: cardBg }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: c.text, fontSize: 14, fontFamily: 'Inter_500Medium' }} numberOfLines={1}>
+                    {f.foods || 'Приём пищи'}
+                  </Text>
+                  <Text style={{ color: c.muted, fontSize: 12, marginTop: 2 }}>
+                    {f.calories != null ? `~${Math.round(f.calories)} ккал` : '—'}
+                    {f.protein != null ? ` · Б ${fmtNum(f.protein)}` : ''}
+                    {f.fat != null ? ` Ж ${fmtNum(f.fat)}` : ''}
+                    {f.carbs != null ? ` У ${fmtNum(f.carbs)}` : ''} · {fmtTime(f.at)}
+                  </Text>
+                </View>
+                <Pressable onPress={() => deleteFoodEntry(f.id)} hitSlop={8} style={{ padding: 8 }}>
+                  <Ionicons name="trash-outline" size={15} color={c.muted} />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         <View style={styles.chatHeadRow}>
           <Text style={[styles.section, { color: c.text }]}>{topic.aiCoachSectionTitle}</Text>
           <View style={styles.chatHeadBtns}>
@@ -461,6 +515,16 @@ function fmtNum(n: number | null): string {
   return String(Math.round(n * 10) / 10);
 }
 
+function fmtTime(ms: number): string {
+  const d = new Date(ms);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  if (sameDay) return `${hh}:${mm}`;
+  return `${d.getDate()}.${String(d.getMonth() + 1).padStart(2, '0')} ${hh}:${mm}`;
+}
+
 const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 140 },
   scrollDesktop: {
@@ -488,6 +552,17 @@ const styles = StyleSheet.create({
   histRow: { flexDirection: 'row', alignItems: 'center' },
   histOpen: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 6 },
   histDel: { padding: 8 },
+  kcalChip: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  foodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+    gap: 8,
+  },
   bubble: {
     borderRadius: 18,
     borderWidth: 1,
