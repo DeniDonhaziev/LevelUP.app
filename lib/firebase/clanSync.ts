@@ -120,6 +120,11 @@ export async function createClanInFirestore(
   return clan;
 }
 
+/** Привести memberCount к фактическому числу участников (устранение рассинхрона). */
+export async function setClanMemberCount(clanId: string, count: number): Promise<void> {
+  await updateDoc(doc(getDb(), CLANS, clanId), { memberCount: count });
+}
+
 export async function joinClanInFirestore(
   clanId: string,
   uid: string,

@@ -9,6 +9,7 @@ import {
   loadClanLeaderboard,
   loadClanMembers,
   loadClanMessages,
+  setClanMemberCount,
   subscribeClan,
   subscribeClanLeaderboard,
   subscribeClanMessages,
@@ -158,6 +159,12 @@ export async function pullClansFromCloud(): Promise<void> {
       } catch (e) {
         console.warn('restore clan membership:', e);
       }
+    }
+
+    // Самоисцеление: приводим memberCount к фактическому числу участников
+    if (clan.memberCount !== members.length) {
+      clan = { ...clan, memberCount: members.length };
+      void setClanMemberCount(clanId, members.length).catch(() => {});
     }
 
     const messages = await loadClanMessages(clanId);

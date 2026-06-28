@@ -340,7 +340,7 @@ export default function ClansScreen() {
                     {clan.name}
                   </Text>
                   <Text style={{ color: c.muted, fontSize: 12, marginTop: 2 }}>
-                    {clan.memberCount || membersSorted.length} участников
+                    {membersSorted.length || clan.memberCount || 0} участников
                     {isOwner ? ' · нажмите на логотип, чтобы сменить' : ''}
                   </Text>
                 </View>
@@ -395,7 +395,7 @@ export default function ClansScreen() {
                 <View style={[styles.statBox, { borderColor: c.border }]}>
                   <Text style={{ color: c.muted, fontSize: 11 }}>Участников</Text>
                   <Text style={{ color: c.text, fontFamily: 'Inter_700Bold', fontSize: 22, marginTop: 4 }}>
-                    {clan.memberCount || membersSorted.length}
+                    {membersSorted.length || clan.memberCount || 0}
                   </Text>
                 </View>
               </View>
