@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { RingProgress } from '@/components/RingProgress';
+import { LevelProgress } from '@/components/home/LevelProgress';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { todayKey } from '@/lib/date';
 import { WebTheme } from '@/lib/theme';
@@ -77,8 +78,13 @@ export function HomeHero({
   );
 
   const today = todayKey();
-  const level = Math.max(1, Math.floor(streak / 5) + Math.floor(achievedDays / 8));
-  const points = (streak * 273 + achievedDays * 150 + doneToday * 50).toLocaleString('ru-RU', {
+  const xp = streak * 273 + achievedDays * 150 + doneToday * 50;
+  const XP_PER_LEVEL = 1500;
+  const level = Math.max(1, Math.floor(xp / XP_PER_LEVEL) + 1);
+  const intoLevel = xp % XP_PER_LEVEL;
+  const levelProgress = intoLevel / XP_PER_LEVEL;
+  const xpRemaining = XP_PER_LEVEL - intoLevel;
+  const points = xp.toLocaleString('ru-RU', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -188,6 +194,9 @@ export function HomeHero({
           <Text style={[styles.metricLabel, { color: c.muted }]}>Days</Text>
         </View>
       </View>
+
+      {/* Прогресс уровня (XP) */}
+      <LevelProgress level={level} xp={xp} progress={levelProgress} remaining={xpRemaining} />
 
       {/* Неделя — горизонтальные пill-карточки */}
       <ScrollView
