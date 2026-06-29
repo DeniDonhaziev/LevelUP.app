@@ -17,7 +17,7 @@ import { AppInput } from '@/components/ui/AppInput';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
 import { TabScreenHeader } from '@/components/ui/TabScreenHeader';
 import { AiPaywall } from '@/components/ai/AiPaywall';
-import { AiHero } from '@/components/ai/AiHero';
+import { AiHero, AiFeatureCards } from '@/components/ai/AiHero';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAppTopic } from '@/hooks/useAppTopic';
@@ -53,10 +53,8 @@ export default function AiScreen() {
     if (profile?.completed) setGoal(mapToBodyGoal(profile.goals));
   }, []);
 
-  const [imageUri, setImageUri] = useState<string | null>(null);
-  const [foodLoading, setFoodLoading] = useState(false);
-  const [foodResult, setFoodResult] = useState<FoodAnalysisResult | null>(null);
-  const [foodRawFallback, setFoodRawFallback] = useState<string | null>(null);
+  // Прикреплённое к чату фото еды (отправляется вместе с сообщением)
+  const [pendingImg, setPendingImg] = useState<{ uri: string; base64: string; mime: string } | null>(null);
   const [foodError, setFoodError] = useState<string | null>(null);
 
   // Сохранённые чаты (как в ChatGPT)
@@ -66,10 +64,7 @@ export default function AiScreen() {
   const setActiveAiChat = useTrackerStore((s) => s.setActiveAiChat);
   const deleteAiChat = useTrackerStore((s) => s.deleteAiChat);
 
-  // Журнал калорий
-  const foodLog = useTrackerStore((s) => s.foodLog);
   const addFoodEntry = useTrackerStore((s) => s.addFoodEntry);
-  const deleteFoodEntry = useTrackerStore((s) => s.deleteFoodEntry);
 
   // Подписка на ИИ
   const currentUser = useTrackerStore((s) => s.currentUser);
@@ -112,29 +107,10 @@ export default function AiScreen() {
   const hasKey = isAiConfigured();
   const canPhoto = canAnalyzeFoodPhoto();
 
-  const runFoodAnalysis = useCallback(
-    async (parsed: { parsed: FoodAnalysisResult | null; raw: string }) => {
-      if (parsed.parsed) {
-        setFoodResult(parsed.parsed);
-        // Сохраняем в журнал калорий
-        addFoodEntry({
-          foods: parsed.parsed.foods_ru,
-          calories: parsed.parsed.calories,
-          protein: parsed.parsed.protein_g,
-          fat: parsed.parsed.fat_g,
-          carbs: parsed.parsed.carbs_g,
-        });
-      } else {
-        setFoodRawFallback(parsed.raw);
-      }
-    },
-    [addFoodEntry]
-  );
-
+  /** Прикрепить фото еды к чату (анализ — при отправке). */
   const pickImage = useCallback(
     async (source: 'library' | 'camera') => {
       setFoodError(null);
-      setFoodRawFallback(null);
       if (!canPhoto) {
         setFoodError(KEY_HINT);
         return;
@@ -155,67 +131,70 @@ export default function AiScreen() {
 
       const result =
         source === 'camera'
-          ? await ImagePicker.launchCameraAsync({
-              mediaTypes: ['images'],
-              allowsEditing: false,
-              quality: 0.55,
-              base64: true,
-            })
-          : await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ['images'],
-              allowsEditing: false,
-              quality: 0.55,
-              base64: true,
-            });
+          ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.55, base64: true })
+          : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.55, base64: true });
 
       if (result.canceled || !result.assets?.[0]) return;
       const a = result.assets[0];
-      setImageUri(a.uri);
-      const m = a.mimeType ?? 'image/jpeg';
       if (!a.base64) {
         setFoodError('Не удалось прочитать фото. Попробуйте другое изображение.');
         return;
       }
-      setFoodResult(null);
-      setFoodLoading(true);
-      try {
-        const out = await analyzeFoodImage(a.base64, m, goal, topic.id);
-        await runFoodAnalysis(out);
-      } catch (e) {
-        setFoodError((e as Error).message ?? 'Ошибка анализа');
-      } finally {
-        setFoodLoading(false);
-      }
+      setPendingImg({ uri: a.uri, base64: a.base64, mime: a.mimeType ?? 'image/jpeg' });
     },
-    [canPhoto, goal, runFoodAnalysis, topic.id]
+    [canPhoto]
   );
 
   const sendChat = useCallback(async () => {
     const text = chatInput.trim();
-    if (!text || chatLoading) return;
+    const img = pendingImg;
+    if ((!text && !img) || chatLoading) return;
     if (!isAiConfigured()) {
       setFoodError(KEY_HINT);
       return;
     }
-    const nextUser: ChatMessage = { role: 'user', content: text };
+    const userContent = img ? (text ? `🍽 ${text}` : '🍽 Фото еды — посчитай калории и дай совет') : text;
+    const nextUser: ChatMessage = { role: 'user', content: userContent };
     const thread = [...chatMessages, nextUser];
     setChatInput('');
+    setPendingImg(null);
     setChatMessages(thread);
     setChatLoading(true);
     setFoodError(null);
     try {
-      const st = useTrackerStore.getState();
-      const profile = st.currentUser ? st.userData[st.currentUser]?.onboarding : undefined;
-      const reply = await coachChat(thread, goal, topic.id, buildAiProfileContext(profile));
-      const withReply = [...thread, { role: 'assistant' as const, content: reply }];
+      let replyText: string;
+      if (img) {
+        // Анализ фото еды → калории + советы прямо в чат
+        const out = await analyzeFoodImage(img.base64, img.mime, goal, topic.id);
+        if (out.parsed) {
+          const r = out.parsed;
+          const kcal = r.calories != null ? `~${Math.round(r.calories)} ккал` : '';
+          const macros = `Б ${fmtNum(r.protein_g)} · Ж ${fmtNum(r.fat_g)} · У ${fmtNum(r.carbs_g)} г`;
+          replyText = `🍽 ${r.foods_ru}\n${kcal}${kcal ? ' · ' : ''}${macros}\n\n${r.advice_ru}`;
+          addFoodEntry({
+            foods: r.foods_ru,
+            calories: r.calories,
+            protein: r.protein_g,
+            fat: r.fat_g,
+            carbs: r.carbs_g,
+          });
+        } else {
+          replyText = out.raw;
+        }
+      } else {
+        const st = useTrackerStore.getState();
+        const profile = st.currentUser ? st.userData[st.currentUser]?.onboarding : undefined;
+        replyText = await coachChat(thread, goal, topic.id, buildAiProfileContext(profile));
+      }
+      const withReply = [...thread, { role: 'assistant' as const, content: replyText }];
       setChatMessages(withReply);
       saveAiChat(withReply); // сохраняем чат (как в ChatGPT)
     } catch (e) {
-      setFoodError((e as Error).message ?? 'Ошибка чата');
+      setFoodError((e as Error).message ?? 'Ошибка');
     } finally {
       setChatLoading(false);
     }
-  }, [chatInput, chatLoading, chatMessages, goal, topic.id, saveAiChat]);
+  }, [chatInput, pendingImg, chatLoading, chatMessages, goal, topic.id, saveAiChat, addFoodEntry]);
 
   function newChat() {
     setActiveAiChat(null);
@@ -274,12 +253,6 @@ export default function AiScreen() {
 
   const cardBg = scheme === 'dark' ? c.cardHover : c.card;
 
-  // Сумма калорий за сегодня
-  const todayStartMs = new Date(new Date().setHours(0, 0, 0, 0)).getTime();
-  const todayKcal = foodLog
-    .filter((f) => f.at >= todayStartMs)
-    .reduce((sum, f) => sum + (f.calories || 0), 0);
-
   // Гейт подписки — без активной подписки показываем тарифы
   if (!aiUnlocked) {
     return (
@@ -307,7 +280,7 @@ export default function AiScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={88}>
       <ScreenScroll keyboardShouldPersistTaps="handled">
-        <AiHero name={displayName} onPickFeature={(p) => setChatInput(p)} />
+        <AiHero name={displayName} />
 
         {!hasKey ? (
           <View style={[styles.bubble, { borderColor: c.border, backgroundColor: cardBg }]}>
@@ -397,28 +370,63 @@ export default function AiScreen() {
           </View>
         ) : null}
 
+        {foodError ? (
+          <Text style={{ color: '#ff6b6b', marginTop: 10, lineHeight: 20 }}>{foodError}</Text>
+        ) : null}
+
         <View style={[styles.askCard, { borderColor: c.border, backgroundColor: cardBg }]}>
+          {pendingImg ? (
+            <View style={styles.attachRow}>
+              <Image source={{ uri: pendingImg.uri }} style={styles.attachThumb} resizeMode="cover" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: c.text, fontFamily: 'Inter_600SemiBold', fontSize: 13 }}>Фото еды прикреплено</Text>
+                <Text style={{ color: c.muted, fontSize: 12, marginTop: 2 }}>Отправь — посчитаю калории и дам совет</Text>
+              </View>
+              <Pressable onPress={() => setPendingImg(null)} hitSlop={8} style={{ padding: 6 }}>
+                <Ionicons name="close" size={18} color={c.muted} />
+              </Pressable>
+            </View>
+          ) : null}
+
           <AppInput
             style={styles.askInput}
-            placeholder={topic.aiPlaceholder}
+            placeholder={pendingImg ? 'Добавь комментарий к фото (необязательно)…' : topic.aiPlaceholder}
             value={chatInput}
             onChangeText={setChatInput}
             multiline
             editable={!chatLoading}
           />
           <View style={styles.askBar}>
-            <View style={[styles.modelChip, { backgroundColor: c.accentSoft }]}>
-              <Ionicons name="sparkles" size={13} color={c.accent} />
-              <Text style={[styles.modelChipText, { color: c.accent }]}>ИИ-коуч</Text>
+            <View style={styles.askBarLeft}>
+              {canPhoto ? (
+                <>
+                  <Pressable
+                    onPress={() => void pickImage('library')}
+                    disabled={chatLoading}
+                    style={({ pressed }) => [styles.attachBtn, { borderColor: c.border, opacity: pressed ? 0.7 : 1 }]}>
+                    <Ionicons name="image-outline" size={18} color={c.text} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => void pickImage('camera')}
+                    disabled={chatLoading}
+                    style={({ pressed }) => [styles.attachBtn, { borderColor: c.border, opacity: pressed ? 0.7 : 1 }]}>
+                    <Ionicons name="camera-outline" size={18} color={c.text} />
+                  </Pressable>
+                </>
+              ) : null}
+              <View style={[styles.modelChip, { backgroundColor: c.accentSoft }]}>
+                <Ionicons name="sparkles" size={13} color={c.accent} />
+                <Text style={[styles.modelChipText, { color: c.accent }]}>ИИ-коуч</Text>
+              </View>
             </View>
             <Pressable
               onPress={() => void sendChat()}
-              disabled={chatLoading || !chatInput.trim()}
+              disabled={chatLoading || (!chatInput.trim() && !pendingImg)}
               style={({ pressed }) => [
                 styles.askSend,
                 {
                   backgroundColor: c.accent,
-                  opacity: chatLoading || !chatInput.trim() ? 0.4 : 1,
+                  opacity: chatLoading || (!chatInput.trim() && !pendingImg) ? 0.4 : 1,
                   transform: [{ scale: pressed ? 0.95 : 1 }],
                 },
               ]}>
@@ -426,141 +434,8 @@ export default function AiScreen() {
             </Pressable>
           </View>
         </View>
-        <Text style={[styles.section, { color: c.text }]}>
-          Ваша цель
-        </Text>
-        <View style={styles.goalRow}>
-          {topic.goals.map((g) => {
-            const active = goal === g.id;
-            return (
-              <Pressable
-                key={g.id}
-                onPress={() => setGoal(g.id)}
-                style={[
-                  styles.goalChip,
-                  {
-                    borderColor: active ? topic.accent : c.border,
-                    backgroundColor: active ? topic.accentMuted : cardBg,
-                  },
-                ]}>
-                <Text style={{ color: c.text, fontFamily: 'Inter_600SemiBold', fontSize: 14 }}>{g.label}</Text>
-                <Text style={{ color: c.muted, fontSize: 11, marginTop: 2 }}>{g.hint}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
 
-        {canPhoto ? (
-          <>
-            <Text style={[styles.section, { color: c.text }]}>{topic.photoSectionTitle}</Text>
-            <View style={styles.rowBtns}>
-              <Pressable
-                onPress={() => void pickImage('library')}
-                disabled={foodLoading}
-                style={({ pressed }) => [
-                  styles.btn,
-                  { borderColor: c.border, opacity: foodLoading ? 0.6 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
-                ]}>
-                <Text style={{ color: c.text, fontFamily: 'Inter_600SemiBold' }}>Галерея</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => void pickImage('camera')}
-                disabled={foodLoading}
-                style={({ pressed }) => [
-                  styles.btn,
-                  { borderColor: c.border, opacity: foodLoading ? 0.6 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
-                ]}>
-                <Text style={{ color: c.text, fontFamily: 'Inter_600SemiBold' }}>Камера</Text>
-              </Pressable>
-            </View>
-          </>
-        ) : null}
-
-        {foodLoading ? (
-          <View style={styles.centerRow}>
-            <ActivityIndicator color={c.text} />
-            <Text style={{ color: c.muted, marginLeft: 10 }}>{topic.photoLoadingText}</Text>
-          </View>
-        ) : null}
-
-        {foodError ? (
-          <Text style={{ color: '#ff6b6b', marginTop: 10, lineHeight: 20 }}>{foodError}</Text>
-        ) : null}
-
-        {imageUri && canPhoto ? (
-          <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="cover" />
-        ) : null}
-
-        {foodResult ? (
-          <View
-            style={[
-              styles.bubble,
-              {
-                borderColor: 'rgba(10,132,255,0.3)',
-                backgroundColor: cardBg,
-              },
-            ]}>
-            {topic.id === 'sport' && foodResult.calories != null ? (
-              <Text style={{ color: c.text, fontFamily: 'Inter_700Bold', fontSize: 16 }}>
-                ~{Math.round(foodResult.calories)} ккал
-              </Text>
-            ) : null}
-            {topic.id === 'sport' ? (
-              <Text style={{ color: c.muted, marginTop: 6, fontSize: 13 }}>
-                Б: {fmtNum(foodResult.protein_g)} · Ж: {fmtNum(foodResult.fat_g)} · У:{' '}
-                {fmtNum(foodResult.carbs_g)} г
-              </Text>
-            ) : null}
-            <Text
-              style={{
-                color: c.text,
-                marginTop: topic.id === 'sport' ? 12 : 0,
-                lineHeight: 22,
-              }}>
-              {foodResult.foods_ru}
-            </Text>
-            <Text style={{ color: c.muted, marginTop: 10, lineHeight: 20 }}>{foodResult.advice_ru}</Text>
-          </View>
-        ) : null}
-
-        {foodRawFallback && !foodResult ? (
-          <View style={[styles.bubble, { borderColor: c.border, backgroundColor: cardBg }]}>
-            <Text style={{ color: c.text, lineHeight: 22 }}>{foodRawFallback}</Text>
-          </View>
-        ) : null}
-
-        {/* Журнал калорий */}
-        {foodLog.length > 0 ? (
-          <View style={{ marginTop: 8 }}>
-            <View style={styles.chatHeadRow}>
-              <Text style={[styles.section, { color: c.text }]}>Журнал калорий</Text>
-              <View style={[styles.kcalChip, { backgroundColor: c.accentSoft }]}>
-                <Text style={{ color: c.accent, fontSize: 13, fontFamily: 'Inter_700Bold' }}>
-                  сегодня ~{Math.round(todayKcal)} ккал
-                </Text>
-              </View>
-            </View>
-            {foodLog.slice(0, 12).map((f) => (
-              <View key={f.id} style={[styles.foodRow, { borderColor: c.border, backgroundColor: cardBg }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: c.text, fontSize: 14, fontFamily: 'Inter_500Medium' }} numberOfLines={1}>
-                    {f.foods || 'Приём пищи'}
-                  </Text>
-                  <Text style={{ color: c.muted, fontSize: 12, marginTop: 2 }}>
-                    {f.calories != null ? `~${Math.round(f.calories)} ккал` : '—'}
-                    {f.protein != null ? ` · Б ${fmtNum(f.protein)}` : ''}
-                    {f.fat != null ? ` Ж ${fmtNum(f.fat)}` : ''}
-                    {f.carbs != null ? ` У ${fmtNum(f.carbs)}` : ''} · {fmtTime(f.at)}
-                  </Text>
-                </View>
-                <Pressable onPress={() => deleteFoodEntry(f.id)} hitSlop={8} style={{ padding: 8 }}>
-                  <Ionicons name="trash-outline" size={15} color={c.muted} />
-                </Pressable>
-              </View>
-            ))}
-          </View>
-        ) : null}
-
+        <AiFeatureCards onPickFeature={(p) => setChatInput(p)} />
       </ScreenScroll>
     </KeyboardAvoidingView>
   );
@@ -697,6 +572,17 @@ const styles = StyleSheet.create({
     paddingTop: 6,
   },
   askBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  askBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  attachBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  attachThumb: { width: 48, height: 48, borderRadius: 12 },
   modelChip: {
     flexDirection: 'row',
     alignItems: 'center',

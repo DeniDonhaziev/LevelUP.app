@@ -24,30 +24,25 @@ const FEATURES: Feature[] = [
   {
     icon: 'barbell',
     title: 'План тренировок',
-    desc: 'Составлю программу под твою цель',
+    desc: 'Программа под твою цель на неделю',
     prompt: 'Составь мне персональный план тренировок на неделю под мою цель.',
   },
   {
     icon: 'nutrition',
-    title: 'Питание',
-    desc: 'Рацион и КБЖУ на день',
+    title: 'Питание и КБЖУ',
+    desc: 'Рацион и расчёт калорий на день',
     prompt: 'Составь план питания на день под мою цель с расчётом КБЖУ.',
   },
   {
     icon: 'trending-up',
     title: 'Мой прогресс',
-    desc: 'Разбор анкеты и советы',
+    desc: 'Разбор анкеты и советы по результату',
     prompt: 'Проанализируй мой прогресс по анкете и дай конкретные советы.',
   },
 ];
 
-type Props = {
-  name?: string;
-  onPickFeature: (prompt: string) => void;
-};
-
-/** Современный герой вкладки ИИ: светящаяся сфера, приветствие, карточки-подсказки. */
-export function AiHero({ name, onPickFeature }: Props) {
+/** Орб + приветствие (верх вкладки ИИ). */
+export function AiHero({ name }: { name?: string }) {
   const c = useThemeColors();
   const pulse = useSharedValue(0);
 
@@ -70,8 +65,7 @@ export function AiHero({ name, onPickFeature }: Props) {
   const hello = name ? `С возвращением, ${name}!` : 'С возвращением!';
 
   return (
-    <View style={styles.wrap}>
-      {/* Сфера со свечением */}
+    <View style={styles.heroWrap}>
       <View style={styles.orbWrap}>
         <Animated.View style={[styles.glow, { backgroundColor: c.accent }, glowStyle]} />
         <Animated.View style={orbStyle}>
@@ -79,62 +73,80 @@ export function AiHero({ name, onPickFeature }: Props) {
             colors={[c.accent, '#A6D800', '#37500A']}
             start={{ x: 0.2, y: 0.1 }}
             end={{ x: 0.8, y: 1 }}
-            style={[styles.orb, Platform.OS === 'web' ? ({ boxShadow: `0 0 48px ${c.accent}66` } as object) : null]}>
+            style={[
+              styles.orb,
+              Platform.OS === 'web' ? ({ boxShadow: `0 0 52px ${c.accent}66` } as object) : null,
+            ]}>
+            <View style={styles.orbRim} />
             <View style={styles.orbHi} />
           </LinearGradient>
         </Animated.View>
       </View>
 
       <Text style={[styles.hello, { color: c.text }]}>{hello}</Text>
-      <Text style={[styles.sub, { color: c.muted }]}>Чем помочь сегодня? Спроси или выбери подсказку</Text>
+      <Text style={[styles.sub, { color: c.muted }]}>
+        Чем помочь сегодня? Спроси или прикрепи фото еды — посчитаю калории
+      </Text>
+    </View>
+  );
+}
 
-      {/* Карточки-подсказки */}
-      <View style={styles.features}>
-        {FEATURES.map((f) => (
-          <Pressable
-            key={f.title}
-            onPress={() => onPickFeature(f.prompt)}
-            style={({ pressed }) => [
-              styles.feat,
-              { backgroundColor: c.cardElevated, borderColor: c.border, opacity: pressed ? 0.85 : 1 },
-            ]}>
-            <View style={[styles.featIcon, { backgroundColor: c.accentSoft }]}>
-              <Ionicons name={f.icon} size={18} color={c.accent} />
-            </View>
-            <Text style={[styles.featTitle, { color: c.text }]}>{f.title}</Text>
-            <Text style={[styles.featDesc, { color: c.muted }]}>{f.desc}</Text>
-          </Pressable>
-        ))}
-      </View>
+/** 3 карточки-подсказки (низ, под ask box — как на референсе). */
+export function AiFeatureCards({ onPickFeature }: { onPickFeature: (prompt: string) => void }) {
+  const c = useThemeColors();
+  return (
+    <View style={styles.features}>
+      {FEATURES.map((f) => (
+        <Pressable
+          key={f.title}
+          onPress={() => onPickFeature(f.prompt)}
+          style={({ pressed }) => [
+            styles.feat,
+            { backgroundColor: c.cardElevated, borderColor: c.border, opacity: pressed ? 0.85 : 1 },
+          ]}>
+          <View style={[styles.featIcon, { backgroundColor: c.accentSoft }]}>
+            <Ionicons name={f.icon} size={18} color={c.accent} />
+          </View>
+          <Text style={[styles.featTitle, { color: c.text }]}>{f.title}</Text>
+          <Text style={[styles.featDesc, { color: c.muted }]}>{f.desc}</Text>
+        </Pressable>
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: 'center', paddingTop: 8, paddingBottom: 18 },
-  orbWrap: { width: 140, height: 140, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
-  glow: { position: 'absolute', width: 150, height: 150, borderRadius: 75 },
+  heroWrap: { alignItems: 'center', paddingTop: 10, paddingBottom: 16 },
+  orbWrap: { width: 150, height: 150, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  glow: { position: 'absolute', width: 160, height: 160, borderRadius: 80 },
   orb: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
+    width: 112,
+    height: 112,
+    borderRadius: 56,
     alignItems: 'center',
     justifyContent: 'flex-start',
     overflow: 'hidden',
   },
-  orbHi: {
-    width: 40,
-    height: 24,
-    borderRadius: 20,
-    marginTop: 16,
-    backgroundColor: 'rgba(255,255,255,0.55)',
-    opacity: 0.9,
+  orbRim: {
+    position: 'absolute',
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    borderWidth: 6,
+    borderColor: 'rgba(0,0,0,0.18)',
   },
-  hello: { fontSize: 26, fontFamily: 'Inter_700Bold', letterSpacing: -0.6, textAlign: 'center' },
-  sub: { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 6, marginBottom: 18 },
-  features: { flexDirection: 'row', gap: 10, width: '100%' },
-  feat: { flex: 1, borderRadius: 18, borderWidth: 1, padding: 14, gap: 6 },
-  featIcon: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  orbHi: {
+    width: 42,
+    height: 26,
+    borderRadius: 21,
+    marginTop: 18,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+  },
+  hello: { fontSize: 28, fontFamily: 'Inter_700Bold', letterSpacing: -0.6, textAlign: 'center' },
+  sub: { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 8, paddingHorizontal: 12 },
+  features: { flexDirection: 'row', gap: 10, width: '100%', marginTop: 14 },
+  feat: { flex: 1, borderRadius: 18, borderWidth: 1, padding: 14, gap: 8 },
+  featIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   featTitle: { fontSize: 13, fontFamily: 'Inter_700Bold' },
   featDesc: { fontSize: 11, fontFamily: 'Inter_400Regular', lineHeight: 15 },
 });
