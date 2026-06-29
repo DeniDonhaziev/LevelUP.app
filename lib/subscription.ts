@@ -5,7 +5,7 @@
  * false — ИИ бесплатный для всех (подписки скрыты).
  * true  — включить платный доступ (когда настроена оплата ЮKassa).
  */
-export const SUBSCRIPTION_ENABLED = true;
+export const SUBSCRIPTION_ENABLED = false;
 
 export type PlanId = '1m' | '3m' | '12m';
 export type SubStatus = 'pending' | 'active' | 'rejected';

@@ -17,6 +17,7 @@ import { AppInput } from '@/components/ui/AppInput';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
 import { TabScreenHeader } from '@/components/ui/TabScreenHeader';
 import { AiPaywall } from '@/components/ai/AiPaywall';
+import { AiHero } from '@/components/ai/AiHero';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAppTopic } from '@/hooks/useAppTopic';
@@ -77,6 +78,14 @@ export default function AiScreen() {
   const setMySubscription = useTrackerStore((s) => s.setMySubscription);
   const isAdmin = isCurrentUserAdmin(currentUser);
   const aiUnlocked = !SUBSCRIPTION_ENABLED || isAdmin || isSubActive(mySubscription);
+
+  // Имя для приветствия в герое
+  const displayName = useTrackerStore((s) => {
+    const u = s.currentUser;
+    if (!u) return '';
+    const onboardName = s.userData[u]?.onboarding?.name?.trim();
+    return onboardName || u;
+  });
 
   const handleSubscribe = useCallback(
     async (plan: PlanId) => {
@@ -298,7 +307,7 @@ export default function AiScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={88}>
       <ScreenScroll keyboardShouldPersistTaps="handled">
-        <TabScreenHeader title={topic.aiTitle} subtitle="Коуч и анализ питания" />
+        <AiHero name={displayName} onPickFeature={(p) => setChatInput(p)} />
 
         {!hasKey ? (
           <View style={[styles.bubble, { borderColor: c.border, backgroundColor: cardBg }]}>
