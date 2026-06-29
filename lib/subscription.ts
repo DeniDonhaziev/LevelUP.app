@@ -57,6 +57,8 @@ export function buildPaymentUrl(plan: PlanId, uid: string, username: string): st
   const q = [
     `receiver=${encodeURIComponent(YOOMONEY_WALLET.trim())}`,
     `quickpay-form=button`,
+    // AC = оплата банковской картой без входа в ЮMoney (а не из кошелька PC)
+    `paymentType=AC`,
     `sum=${p.price}`,
     `label=${encodeURIComponent(`${uid}:${plan}`)}`,
     `targets=${encodeURIComponent(`LevelUp ИИ — ${p.title} (${username})`)}`,
