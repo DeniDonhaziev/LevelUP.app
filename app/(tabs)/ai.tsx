@@ -328,6 +328,104 @@ export default function AiScreen() {
           </View>
         ) : null}
 
+        <View style={styles.chatHeadRow}>
+          <Text style={[styles.section, { color: c.text }]}>{topic.aiCoachSectionTitle}</Text>
+          <View style={styles.chatHeadBtns}>
+            <Pressable
+              onPress={() => setShowHistory((v) => !v)}
+              style={[styles.chatHeadBtn, { borderColor: c.border, backgroundColor: cardBg }]}>
+              <Ionicons name="time-outline" size={16} color={c.text} />
+              <Text style={[styles.chatHeadBtnText, { color: c.text }]}>История{aiChats.length ? ` (${aiChats.length})` : ''}</Text>
+            </Pressable>
+            <Pressable
+              onPress={newChat}
+              style={[styles.chatHeadBtn, { borderColor: c.accent, backgroundColor: c.accentSoft }]}>
+              <Ionicons name="add" size={16} color={c.accent} />
+              <Text style={[styles.chatHeadBtnText, { color: c.accent }]}>Новый</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {showHistory ? (
+          <View style={[styles.histPanel, { borderColor: c.border, backgroundColor: cardBg }]}>
+            {aiChats.length === 0 ? (
+              <Text style={{ color: c.muted, fontSize: 13, padding: 4 }}>Сохранённых чатов пока нет.</Text>
+            ) : (
+              aiChats.map((ch) => (
+                <View key={ch.id} style={styles.histRow}>
+                  <Pressable onPress={() => openChat(ch.id)} style={styles.histOpen}>
+                    <Ionicons
+                      name="chatbubble-ellipses-outline"
+                      size={16}
+                      color={ch.id === activeAiChatId ? c.accent : c.muted}
+                    />
+                    <Text
+                      style={{ color: ch.id === activeAiChatId ? c.accent : c.text, fontSize: 14, flex: 1 }}
+                      numberOfLines={1}>
+                      {ch.title || 'Чат'}
+                    </Text>
+                  </Pressable>
+                  <Pressable onPress={() => deleteAiChat(ch.id)} hitSlop={8} style={styles.histDel}>
+                    <Ionicons name="trash-outline" size={15} color={c.muted} />
+                  </Pressable>
+                </View>
+              ))
+            )}
+          </View>
+        ) : null}
+
+        {chatMessages.map((msg, i) => (
+          <View
+            key={i}
+            style={[
+              styles.chatBubble,
+              {
+                alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                backgroundColor: msg.role === 'user' ? 'rgba(28, 28, 30, 0.08)' : cardBg,
+                borderColor: c.border,
+              },
+            ]}>
+            <Text style={{ color: c.text, lineHeight: 22 }}>
+              {typingMessageIndex === i ? typingText : msg.content}
+              {typingMessageIndex === i ? '▌' : ''}
+            </Text>
+          </View>
+        ))}
+        {chatLoading ? (
+          <View style={styles.centerRow}>
+            <ActivityIndicator color={c.text} size="small" />
+          </View>
+        ) : null}
+
+        <View style={[styles.askCard, { borderColor: c.border, backgroundColor: cardBg }]}>
+          <AppInput
+            style={styles.askInput}
+            placeholder={topic.aiPlaceholder}
+            value={chatInput}
+            onChangeText={setChatInput}
+            multiline
+            editable={!chatLoading}
+          />
+          <View style={styles.askBar}>
+            <View style={[styles.modelChip, { backgroundColor: c.accentSoft }]}>
+              <Ionicons name="sparkles" size={13} color={c.accent} />
+              <Text style={[styles.modelChipText, { color: c.accent }]}>ИИ-коуч</Text>
+            </View>
+            <Pressable
+              onPress={() => void sendChat()}
+              disabled={chatLoading || !chatInput.trim()}
+              style={({ pressed }) => [
+                styles.askSend,
+                {
+                  backgroundColor: c.accent,
+                  opacity: chatLoading || !chatInput.trim() ? 0.4 : 1,
+                  transform: [{ scale: pressed ? 0.95 : 1 }],
+                },
+              ]}>
+              <Ionicons name="arrow-up" size={20} color={c.onAccent} />
+            </Pressable>
+          </View>
+        </View>
         <Text style={[styles.section, { color: c.text }]}>
           Ваша цель
         </Text>
@@ -463,100 +561,6 @@ export default function AiScreen() {
           </View>
         ) : null}
 
-        <View style={styles.chatHeadRow}>
-          <Text style={[styles.section, { color: c.text }]}>{topic.aiCoachSectionTitle}</Text>
-          <View style={styles.chatHeadBtns}>
-            <Pressable
-              onPress={() => setShowHistory((v) => !v)}
-              style={[styles.chatHeadBtn, { borderColor: c.border, backgroundColor: cardBg }]}>
-              <Ionicons name="time-outline" size={16} color={c.text} />
-              <Text style={[styles.chatHeadBtnText, { color: c.text }]}>История{aiChats.length ? ` (${aiChats.length})` : ''}</Text>
-            </Pressable>
-            <Pressable
-              onPress={newChat}
-              style={[styles.chatHeadBtn, { borderColor: c.accent, backgroundColor: c.accentSoft }]}>
-              <Ionicons name="add" size={16} color={c.accent} />
-              <Text style={[styles.chatHeadBtnText, { color: c.accent }]}>Новый</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {showHistory ? (
-          <View style={[styles.histPanel, { borderColor: c.border, backgroundColor: cardBg }]}>
-            {aiChats.length === 0 ? (
-              <Text style={{ color: c.muted, fontSize: 13, padding: 4 }}>Сохранённых чатов пока нет.</Text>
-            ) : (
-              aiChats.map((ch) => (
-                <View key={ch.id} style={styles.histRow}>
-                  <Pressable onPress={() => openChat(ch.id)} style={styles.histOpen}>
-                    <Ionicons
-                      name="chatbubble-ellipses-outline"
-                      size={16}
-                      color={ch.id === activeAiChatId ? c.accent : c.muted}
-                    />
-                    <Text
-                      style={{ color: ch.id === activeAiChatId ? c.accent : c.text, fontSize: 14, flex: 1 }}
-                      numberOfLines={1}>
-                      {ch.title || 'Чат'}
-                    </Text>
-                  </Pressable>
-                  <Pressable onPress={() => deleteAiChat(ch.id)} hitSlop={8} style={styles.histDel}>
-                    <Ionicons name="trash-outline" size={15} color={c.muted} />
-                  </Pressable>
-                </View>
-              ))
-            )}
-          </View>
-        ) : null}
-
-        {chatMessages.map((msg, i) => (
-          <View
-            key={i}
-            style={[
-              styles.chatBubble,
-              {
-                alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                backgroundColor: msg.role === 'user' ? 'rgba(28, 28, 30, 0.08)' : cardBg,
-                borderColor: c.border,
-              },
-            ]}>
-            <Text style={{ color: c.text, lineHeight: 22 }}>
-              {typingMessageIndex === i ? typingText : msg.content}
-              {typingMessageIndex === i ? '▌' : ''}
-            </Text>
-          </View>
-        ))}
-        {chatLoading ? (
-          <View style={styles.centerRow}>
-            <ActivityIndicator color={c.text} size="small" />
-          </View>
-        ) : null}
-
-        <View style={[styles.inputRow, { borderColor: c.border, backgroundColor: cardBg }]}>
-          <AppInput
-            style={styles.input}
-            placeholder={topic.aiPlaceholder}
-            value={chatInput}
-            onChangeText={setChatInput}
-            multiline
-            editable={!chatLoading}
-          />
-          <Pressable
-            onPress={() => void sendChat()}
-            disabled={chatLoading || !chatInput.trim()}
-            style={({ pressed }) => [
-              styles.sendBtn,
-              {
-                backgroundColor: c.accentSoft,
-                borderWidth: 1,
-                borderColor: c.accent,
-                opacity: chatLoading || !chatInput.trim() ? 0.4 : 1,
-                transform: [{ scale: pressed ? 0.98 : 1 }],
-              },
-            ]}>
-            <Text style={{ color: c.text, fontFamily: 'Inter_700Bold' }}>Отправить</Text>
-          </Pressable>
-        </View>
       </ScreenScroll>
     </KeyboardAvoidingView>
   );
@@ -677,4 +681,30 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
   },
+  askCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 14,
+    marginTop: 14,
+    gap: 12,
+  },
+  askInput: {
+    minHeight: 48,
+    maxHeight: 140,
+    fontSize: 16,
+    fontFamily: 'Inter_400Regular',
+    paddingHorizontal: 6,
+    paddingTop: 6,
+  },
+  askBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  modelChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+  },
+  modelChipText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
+  askSend: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
 });
