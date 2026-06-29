@@ -7,11 +7,6 @@
  */
 export const SUBSCRIPTION_ENABLED = true;
 
-/** Реквизиты для перевода по СБП (ручной режим, пока не подключена ЮKassa). */
-export const SBP_PHONE = '+7 929 894-31-37';
-export const SBP_BANK = 'Сбербанк';
-export const SBP_RECIPIENT = 'Дени Д.';
-
 export type PlanId = '1m' | '3m' | '12m';
 export type SubStatus = 'pending' | 'active' | 'rejected';
 
@@ -94,8 +89,8 @@ export function buildPaymentUrl(plan: PlanId, uid: string, username: string): st
 
 /** Текст про оплату на пейволе. */
 export const PAYMENT_NOTE = isPaymentConfigured()
-  ? 'Оплата картой или через СБП на защищённой странице ЮMoney. Доступ к ИИ откроется сразу после подтверждения оплаты администратором.'
-  : `Переведите сумму выбранного тарифа по СБП на номер ${SBP_PHONE} (${SBP_BANK}, ${SBP_RECIPIENT}). После перевода нажмите «Оформить заявку» — доступ к ИИ откроется после подтверждения оплаты.`;
+  ? 'Оплата банковской картой на защищённой странице ЮMoney. Доступ к ИИ откроется сразу после подтверждения оплаты администратором.'
+  : 'Нажмите «Оформить заявку» — администратор свяжется с вами и пришлёт реквизиты для оплаты. Доступ к ИИ откроется после подтверждения.';
 
 export function planTitle(plan: PlanId): string {
   return PLAN_BY_ID[plan]?.title ?? plan;
