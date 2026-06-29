@@ -23,7 +23,6 @@ import { useUserLocation } from '@/hooks/useUserLocation';
 import { snapRouteToRoads } from '@/lib/roadSnap';
 import { useTrackerStore } from '@/store/trackerStore';
 import { GroupedSection } from '@/components/ui/GroupedSection';
-import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TabScreenHeader } from '@/components/ui/TabScreenHeader';
@@ -376,16 +375,25 @@ export default function RunScreen() {
       <GroupedSection title={L.section}>
         <View style={styles.runSection}>
           {!watching ? (
-            <PrimaryButton label={L.start} onPress={() => void startRun()} />
+            <Pressable
+              onPress={() => void startRun()}
+              style={({ pressed }) => [styles.startBtn, { backgroundColor: c.accent, transform: [{ scale: pressed ? 0.98 : 1 }] }]}>
+              <Ionicons name="play" size={20} color={c.onAccent} />
+              <Text style={[styles.startText, { color: c.onAccent }]}>{L.start}</Text>
+            </Pressable>
           ) : (
             <View style={[styles.panel, { backgroundColor: c.cardHover, borderColor: c.border }]}>
-              <Text style={{ color: c.text, fontSize: 32, fontFamily: 'Inter_700Bold', letterSpacing: -0.5 }}>
-                {timerText}
-              </Text>
-              <Text style={{ color: c.muted, marginTop: 6, fontFamily: 'Inter_500Medium' }}>
-                Расстояние: {distText}
-              </Text>
-              <Text style={{ color: c.muted, marginTop: 8, fontSize: 13, lineHeight: 18 }}>{gpsStatus}</Text>
+              <View style={styles.runGrid}>
+                <View style={[styles.runStat, { borderColor: c.border, backgroundColor: c.cardElevated }]}>
+                  <Text style={[styles.runStatLabel, { color: c.muted }]}>Время</Text>
+                  <Text style={[styles.runStatValue, { color: c.text }]}>{timerText}</Text>
+                </View>
+                <View style={[styles.runStat, { borderColor: c.border, backgroundColor: c.cardElevated }]}>
+                  <Text style={[styles.runStatLabel, { color: c.muted }]}>Дистанция</Text>
+                  <Text style={[styles.runStatValue, { color: c.accent }]}>{distText}</Text>
+                </View>
+              </View>
+              <Text style={{ color: c.muted, marginTop: 10, fontSize: 13, lineHeight: 18 }}>{gpsStatus}</Text>
               <Pressable
                 onPress={stopRun}
                 disabled={stopping}
@@ -505,6 +513,19 @@ const styles = StyleSheet.create({
   goBtn: { paddingVertical: 15, borderRadius: 14, alignItems: 'center', marginTop: 8 },
   goText: { fontSize: 17, fontFamily: 'Inter_700Bold', color: '#F2F2F7' },
   panel: { borderRadius: 16, borderWidth: 1, padding: 14, marginTop: 8 },
+  startBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 16,
+  },
+  startText: { fontFamily: 'Inter_700Bold', fontSize: 17 },
+  runGrid: { flexDirection: 'row', gap: 10 },
+  runStat: { flex: 1, borderRadius: 14, borderWidth: 1, paddingVertical: 14, paddingHorizontal: 12, alignItems: 'center', gap: 4 },
+  runStatLabel: { fontSize: 12, fontFamily: 'Inter_500Medium' },
+  runStatValue: { fontSize: 26, fontFamily: 'Inter_700Bold', letterSpacing: -0.5 },
   stopBtn: { backgroundColor: '#FF6B6B', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   stopText: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 16 },
   result: { marginTop: 14, padding: 14, borderRadius: 16, borderWidth: 1 },
