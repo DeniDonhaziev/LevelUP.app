@@ -28,6 +28,7 @@ import { DEMO_ACCOUNTS, DEFAULT_TOPIC_ID, type TopicId } from '@/lib/topics';
 import { captureRoadFromRun, routeLengthMeters } from '@/lib/geo';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { nextDevStage, normalizeDevStage } from '@/lib/projectStages';
+import type { SubscriptionDoc } from '@/lib/subscription';
 import type {
   AccountingEntry,
   AccountingKind,
@@ -110,6 +111,9 @@ type State = {
   foodLog: FoodEntry[];
   addFoodEntry: (e: Omit<FoodEntry, 'id' | 'at'>) => void;
   deleteFoodEntry: (id: string) => void;
+  /** Подписка текущего пользователя на ИИ */
+  mySubscription: SubscriptionDoc | null;
+  setMySubscription: (sub: SubscriptionDoc | null) => void;
   login: (username: string, password: string) => boolean;
   register: (username: string, password: string, topicId?: TopicId) => string | null;
   resetLocalPassword: (username: string, newPassword: string) => string | null;
@@ -395,6 +399,8 @@ export const useTrackerStore = create<State>()(
           foodLog: [{ id: 'food' + Date.now(), at: Date.now(), ...e }, ...s.foodLog].slice(0, 200),
         })),
       deleteFoodEntry: (id) => set((s) => ({ foodLog: s.foodLog.filter((f) => f.id !== id) })),
+      mySubscription: null,
+      setMySubscription: (sub) => set({ mySubscription: sub }),
 
       setAuthReady: (ready) => set({ authReady: ready }),
 
@@ -1536,6 +1542,7 @@ export const useTrackerStore = create<State>()(
         aiChats: s.aiChats,
         activeAiChatId: s.activeAiChatId,
         foodLog: s.foodLog,
+        mySubscription: s.mySubscription,
         clansById: s.clansById,
         clanMembersByClanId: s.clanMembersByClanId,
         clanMessagesByClanId: s.clanMessagesByClanId,

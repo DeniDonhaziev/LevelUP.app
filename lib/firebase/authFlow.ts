@@ -21,6 +21,7 @@ import { clearPushTokensOnLogout } from '@/lib/notifications/fcm/logout';
 import { syncMotivationSchedule } from '@/lib/notifications/runMotivation';
 
 import { pullClansFromCloud, stopClanListeners } from './clanListeners';
+import { subscribeMySubscription } from './subscriptionSync';
 import { startRunnerLeaderboardListener, stopRunnerLeaderboardListener } from './runnerListeners';
 import { startCyclistLeaderboardListener, stopCyclistLeaderboardListener } from './cyclistListeners';
 import { getFirebaseAuth } from './app';
@@ -38,11 +39,26 @@ import {
 } from './firestoreSync';
 
 let detachTerritoriesListener: (() => void) | null = null;
+let detachSubscriptionListener: (() => void) | null = null;
 
 function stopTerritoriesListener() {
   if (detachTerritoriesListener) {
     detachTerritoriesListener();
     detachTerritoriesListener = null;
+  }
+}
+
+function startSubscriptionListener(uid: string) {
+  stopSubscriptionListener();
+  detachSubscriptionListener = subscribeMySubscription(uid, (sub) => {
+    useTrackerStore.getState().setMySubscription(sub);
+  });
+}
+
+function stopSubscriptionListener() {
+  if (detachSubscriptionListener) {
+    detachSubscriptionListener();
+    detachSubscriptionListener = null;
   }
 }
 
@@ -56,6 +72,7 @@ function startTerritoriesListener() {
 async function startSportListeners(uid: string): Promise<void> {
   startRunnerLeaderboardListener();
   startCyclistLeaderboardListener();
+  startSubscriptionListener(uid);
   await pullClansFromCloud();
   if (await ensureNotificationPermission()) {
     const clanId = useTrackerStore.getState().getClanId();
@@ -101,6 +118,7 @@ export function subscribeToAuthChanges(): () => void {
     stopClanListeners();
     stopRunnerLeaderboardListener();
     stopCyclistLeaderboardListener();
+    stopSubscriptionListener();
     try {
       if (user?.email) {
         const [doc, terr] = await Promise.all([loadUserDocument(user.uid), loadTerritoriesCollection()]);
@@ -152,6 +170,7 @@ export function subscribeToAuthChanges(): () => void {
     stopClanListeners();
     stopRunnerLeaderboardListener();
     stopCyclistLeaderboardListener();
+    stopSubscriptionListener();
     unsubAuth();
   };
 }
@@ -262,7 +281,9 @@ export async function firebaseLogin(identifier: string, password: string): Promi
 
 export async function firebaseLogout(): Promise<void> {
   stopTerritoriesListener();
+  stopSubscriptionListener();
   const st = useTrackerStore.getState();
+  st.setMySubscription(null);
   const uid = st.firebaseUid;
   const clanId = st.getClanId();
   if (uid) {

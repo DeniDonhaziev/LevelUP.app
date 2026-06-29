@@ -27,6 +27,13 @@ import {
   loadClanMembers,
   loadClanMessages,
 } from '@/lib/firebase/clanSync';
+import {
+  approveSubscription,
+  deleteSubscription,
+  loadAllSubscriptions,
+  rejectSubscription,
+} from '@/lib/firebase/subscriptionSync';
+import { fmtSubDate, planTitle, type SubscriptionDoc } from '@/lib/subscription';
 import type { Clan, ClanMember, ClanMessage } from '@/lib/types';
 
 type ThemeColors = (typeof Colors)['dark'];
@@ -51,6 +58,7 @@ export default function AdminScreen() {
   const admin = isCurrentUserAdmin(currentUser);
 
   const [clans, setClans] = useState<Clan[]>([]);
+  const [subs, setSubs] = useState<SubscriptionDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [members, setMembers] = useState<Record<string, ClanMember[]>>({});
@@ -60,12 +68,51 @@ export default function AdminScreen() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await loadClanLeaderboard(200);
+      const [list, subList] = await Promise.all([loadClanLeaderboard(200), loadAllSubscriptions()]);
       setClans(list);
+      setSubs(subList);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  async function onApproveSub(sub: SubscriptionDoc) {
+    setBusy(`sub:${sub.uid}`);
+    try {
+      const updated = await approveSubscription(sub);
+      setSubs((prev) => prev.map((s) => (s.uid === sub.uid ? updated : s)));
+    } catch (e) {
+      Alert.alert('Ошибка', (e as Error).message ?? 'Не удалось подтвердить');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onRejectSub(sub: SubscriptionDoc) {
+    setBusy(`sub:${sub.uid}`);
+    try {
+      const updated = await rejectSubscription(sub);
+      setSubs((prev) => prev.map((s) => (s.uid === sub.uid ? updated : s)));
+    } catch (e) {
+      Alert.alert('Ошибка', (e as Error).message ?? 'Не удалось отклонить');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onDeleteSub(sub: SubscriptionDoc) {
+    const ok = await confirm('Удалить запись?', `Подписка ${sub.username} будет удалена.`);
+    if (!ok) return;
+    setBusy(`sub:${sub.uid}`);
+    try {
+      await deleteSubscription(sub.uid);
+      setSubs((prev) => prev.filter((s) => s.uid !== sub.uid));
+    } catch (e) {
+      Alert.alert('Ошибка', (e as Error).message ?? 'Не удалось удалить');
+    } finally {
+      setBusy(null);
+    }
+  }
 
   useEffect(() => {
     if (admin) void reload();
@@ -161,6 +208,92 @@ export default function AdminScreen() {
           <Text style={[styles.bannerText, { color: c.text }]}>
             Всего кланов: {clans.length}. Удаление безвозвратно.
           </Text>
+        </View>
+
+        {/* ── Заявки на подписку ── */}
+        <View style={styles.secHead}>
+          <Text style={[styles.secTitle, { color: c.text }]}>Подписки на ИИ</Text>
+          {(() => {
+            const pend = subs.filter((s) => s.status === 'pending').length;
+            return pend > 0 ? (
+              <View style={[styles.pendPill, { backgroundColor: c.lime }]}>
+                <Text style={styles.pendPillText}>{pend} новых</Text>
+              </View>
+            ) : null;
+          })()}
+        </View>
+        {subs.length === 0 ? (
+          <Text style={[styles.dim, { color: c.muted, marginBottom: 12 }]}>Заявок пока нет.</Text>
+        ) : (
+          [...subs]
+            .sort((a, b) => {
+              const order = { pending: 0, active: 1, rejected: 2 } as const;
+              return order[a.status] - order[b.status] || (b.requestedAt || 0) - (a.requestedAt || 0);
+            })
+            .map((sub) => {
+              const subBusy = busy === `sub:${sub.uid}`;
+              const statusColor =
+                sub.status === 'active' ? c.lime : sub.status === 'pending' ? '#FFB020' : c.danger;
+              const statusText =
+                sub.status === 'active'
+                  ? `активна до ${fmtSubDate(sub.expiresAt)}`
+                  : sub.status === 'pending'
+                    ? 'ожидает подтверждения'
+                    : 'отклонена';
+              return (
+                <View key={sub.uid} style={[styles.card, { backgroundColor: c.cardElevated, borderColor: c.border }]}>
+                  <View style={styles.subRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.clanName, { color: c.text }]}>{sub.username}</Text>
+                      <Text style={[styles.clanMeta, { color: c.muted }]}>{sub.email || '—'}</Text>
+                      <Text style={[styles.clanMeta, { color: c.muted }]}>
+                        Тариф «{planTitle(sub.plan)}» · {sub.price} ₽
+                      </Text>
+                      <Text style={[styles.clanMeta, { color: statusColor, fontFamily: 'Inter_600SemiBold' }]}>
+                        {statusText}
+                      </Text>
+                    </View>
+                    {subBusy ? <ActivityIndicator color={c.lime} /> : null}
+                  </View>
+                  <View style={styles.subActions}>
+                    {sub.status !== 'active' ? (
+                      <Pressable
+                        onPress={() => void onApproveSub(sub)}
+                        disabled={subBusy}
+                        style={[styles.subBtn, { backgroundColor: c.lime, opacity: subBusy ? 0.5 : 1 }]}>
+                        <Ionicons name="checkmark" size={16} color="#0A0A0B" />
+                        <Text style={[styles.subBtnText, { color: '#0A0A0B' }]}>Подтвердить</Text>
+                      </Pressable>
+                    ) : (
+                      <Pressable
+                        onPress={() => void onApproveSub(sub)}
+                        disabled={subBusy}
+                        style={[styles.subBtnOutline, { borderColor: c.lime, opacity: subBusy ? 0.5 : 1 }]}>
+                        <Text style={[styles.subBtnText, { color: c.lime }]}>Продлить</Text>
+                      </Pressable>
+                    )}
+                    {sub.status === 'pending' ? (
+                      <Pressable
+                        onPress={() => void onRejectSub(sub)}
+                        disabled={subBusy}
+                        style={[styles.subBtnOutline, { borderColor: c.danger, opacity: subBusy ? 0.5 : 1 }]}>
+                        <Text style={[styles.subBtnText, { color: c.danger }]}>Отклонить</Text>
+                      </Pressable>
+                    ) : null}
+                    <Pressable
+                      onPress={() => void onDeleteSub(sub)}
+                      disabled={subBusy}
+                      style={[styles.subIconBtn, { borderColor: c.border }]}>
+                      <Ionicons name="trash-outline" size={15} color={c.muted} />
+                    </Pressable>
+                  </View>
+                </View>
+              );
+            })
+        )}
+
+        <View style={styles.secHead}>
+          <Text style={[styles.secTitle, { color: c.text }]}>Кланы</Text>
         </View>
 
         {loading ? (
@@ -317,4 +450,37 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   kickText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  secHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, marginBottom: 10 },
+  secTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', letterSpacing: -0.3 },
+  pendPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  pendPillText: { fontSize: 12, fontFamily: 'Inter_700Bold', color: '#0A0A0B' },
+  subRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14 },
+  subActions: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingBottom: 14 },
+  subBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  subBtnOutline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  subBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  subIconBtn: {
+    width: 38,
+    height: 36,
+    borderWidth: 1,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 'auto',
+  },
 });

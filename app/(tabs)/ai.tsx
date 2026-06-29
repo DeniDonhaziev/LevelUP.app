@@ -16,11 +16,15 @@ import * as ImagePicker from 'expo-image-picker';
 import { AppInput } from '@/components/ui/AppInput';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
 import { TabScreenHeader } from '@/components/ui/TabScreenHeader';
+import { AiPaywall } from '@/components/ai/AiPaywall';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAppTopic } from '@/hooks/useAppTopic';
 import { useTrackerStore } from '@/store/trackerStore';
 import { buildAiProfileContext, mapToBodyGoal } from '@/lib/onboarding';
+import { isCurrentUserAdmin, getCurrentAuthEmail } from '@/lib/admin';
+import { isSubActive, type PlanId } from '@/lib/subscription';
+import { requestSubscription } from '@/lib/firebase/subscriptionSync';
 import { WebTheme } from '@/lib/theme';
 import {
   analyzeFoodImage,
@@ -65,6 +69,24 @@ export default function AiScreen() {
   const foodLog = useTrackerStore((s) => s.foodLog);
   const addFoodEntry = useTrackerStore((s) => s.addFoodEntry);
   const deleteFoodEntry = useTrackerStore((s) => s.deleteFoodEntry);
+
+  // Подписка на ИИ
+  const currentUser = useTrackerStore((s) => s.currentUser);
+  const firebaseUid = useTrackerStore((s) => s.firebaseUid);
+  const mySubscription = useTrackerStore((s) => s.mySubscription);
+  const setMySubscription = useTrackerStore((s) => s.setMySubscription);
+  const isAdmin = isCurrentUserAdmin(currentUser);
+  const aiUnlocked = isAdmin || isSubActive(mySubscription);
+
+  const handleSubscribe = useCallback(
+    async (plan: PlanId) => {
+      if (!firebaseUid || !currentUser) throw new Error('Войдите в аккаунт');
+      const email = getCurrentAuthEmail() ?? '';
+      const sub = await requestSubscription(firebaseUid, currentUser, email, plan);
+      setMySubscription(sub); // оптимистично — статус «на рассмотрении»
+    },
+    [firebaseUid, currentUser, setMySubscription]
+  );
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
     const st = useTrackerStore.getState();
@@ -248,6 +270,25 @@ export default function AiScreen() {
   const todayKcal = foodLog
     .filter((f) => f.at >= todayStartMs)
     .reduce((sum, f) => sum + (f.calories || 0), 0);
+
+  // Гейт подписки — без активной подписки показываем тарифы
+  if (!aiUnlocked) {
+    return (
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={88}>
+        <ScreenScroll keyboardShouldPersistTaps="handled">
+          <TabScreenHeader title={topic.aiTitle} subtitle="Коуч и анализ питания" />
+          <AiPaywall
+            sub={mySubscription}
+            canSubmit={!!firebaseUid && !!currentUser}
+            onSubmit={handleSubscribe}
+          />
+        </ScreenScroll>
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
     <KeyboardAvoidingView

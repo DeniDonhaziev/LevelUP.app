@@ -1,0 +1,69 @@
+/** ── Подписка на ИИ-коуч ── */
+
+export type PlanId = '1m' | '3m' | '12m';
+export type SubStatus = 'pending' | 'active' | 'rejected';
+
+export type SubscriptionDoc = {
+  uid: string;
+  username: string;
+  email: string;
+  plan: PlanId;
+  status: SubStatus;
+  price: number;
+  requestedAt: number;
+  activatedAt?: number;
+  expiresAt?: number;
+};
+
+export type PlanInfo = {
+  id: PlanId;
+  months: number;
+  price: number;
+  title: string;
+  perMonth: string;
+  badge?: string;
+};
+
+export const PLANS: PlanInfo[] = [
+  { id: '1m', months: 1, price: 299, title: '1 месяц', perMonth: '299 ₽ / мес' },
+  { id: '3m', months: 3, price: 699, title: '3 месяца', perMonth: '233 ₽ / мес', badge: 'выгодно' },
+  { id: '12m', months: 12, price: 1999, title: '12 месяцев', perMonth: '167 ₽ / мес', badge: 'лучшая цена' },
+];
+
+export const PLAN_BY_ID: Record<PlanId, PlanInfo> = {
+  '1m': PLANS[0],
+  '3m': PLANS[1],
+  '12m': PLANS[2],
+};
+
+/** Реквизиты для оплаты — ЗАМЕНИТЕ на свои (карта / номер СБП). */
+export const PAYMENT_NOTE =
+  'Перевод по СБП на номер +7 900 000-00-00 (получатель — Дени Д.). ' +
+  'После перевода нажмите «Я оплатил» — заявка уйдёт администратору на подтверждение.';
+
+export function planTitle(plan: PlanId): string {
+  return PLAN_BY_ID[plan]?.title ?? plan;
+}
+
+export function isSubActive(sub: SubscriptionDoc | null): boolean {
+  return !!sub && sub.status === 'active' && (sub.expiresAt ?? 0) > Date.now();
+}
+
+/** Прибавить месяцы к метке времени (ms). */
+export function addMonths(baseMs: number, months: number): number {
+  const d = new Date(baseMs);
+  d.setMonth(d.getMonth() + months);
+  return d.getTime();
+}
+
+export function fmtSubDate(ms?: number): string {
+  if (!ms) return '—';
+  const d = new Date(ms);
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
+}
+
+/** Сколько дней осталось до окончания подписки (>= 0). */
+export function daysLeft(sub: SubscriptionDoc | null): number {
+  if (!sub?.expiresAt) return 0;
+  return Math.max(0, Math.ceil((sub.expiresAt - Date.now()) / 86_400_000));
+}

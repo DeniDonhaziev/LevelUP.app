@@ -69,5 +69,20 @@ service cloud.firestore {
     match /users/{userId}/pushTokens/{tokenId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+    // Подписки на ИИ: id документа = uid пользователя
+    match /subscriptions/{uid} {
+      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      // Пользователь может создать/обновить только СВОЮ заявку и только в статусе pending.
+      // Активировать/отклонять (статусы active/rejected) может только админ.
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.status == 'pending';
+      allow update: if isAdmin()
+        || (request.auth != null
+            && request.auth.uid == uid
+            && request.resource.data.status == 'pending');
+      allow delete: if isAdmin();
+    }
   }
 }
