@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -41,49 +41,45 @@ const FEATURES: Feature[] = [
   },
 ];
 
-/** Орб + приветствие (верх вкладки ИИ). */
+/** Бейдж-логотип + приветствие (верх вкладки ИИ). */
 export function AiHero({ name }: { name?: string }) {
   const c = useThemeColors();
+  const { width } = useWindowDimensions();
+  const compact = width < 420;
   const pulse = useSharedValue(0);
 
   useEffect(() => {
     pulse.value = withRepeat(
-      withTiming(1, { duration: 2800, easing: Easing.inOut(Easing.quad) }),
+      withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.quad) }),
       -1,
       true
     );
   }, [pulse]);
 
   const glowStyle = useAnimatedStyle(() => ({
-    opacity: 0.25 + pulse.value * 0.4,
-    transform: [{ scale: 0.85 + pulse.value * 0.2 }],
-  }));
-  const orbStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 0.98 + pulse.value * 0.04 }],
+    opacity: 0.18 + pulse.value * 0.32,
+    transform: [{ scale: 0.9 + pulse.value * 0.18 }],
   }));
 
   const hello = name ? `С возвращением, ${name}!` : 'С возвращением!';
 
   return (
     <View style={styles.heroWrap}>
-      <View style={styles.orbWrap}>
+      <View style={styles.badgeWrap}>
         <Animated.View style={[styles.glow, { backgroundColor: c.accent }, glowStyle]} />
-        <Animated.View style={orbStyle}>
-          <LinearGradient
-            colors={[c.accent, '#A6D800', '#37500A']}
-            start={{ x: 0.2, y: 0.1 }}
-            end={{ x: 0.8, y: 1 }}
-            style={[
-              styles.orb,
-              Platform.OS === 'web' ? ({ boxShadow: `0 0 52px ${c.accent}66` } as object) : null,
-            ]}>
-            <View style={styles.orbRim} />
-            <View style={styles.orbHi} />
-          </LinearGradient>
-        </Animated.View>
+        <LinearGradient
+          colors={[c.accent, '#9ECC00']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[
+            styles.badge,
+            Platform.OS === 'web' ? ({ boxShadow: `0 8px 30px ${c.accent}55` } as object) : null,
+          ]}>
+          <Ionicons name="sparkles" size={30} color={c.onAccent} />
+        </LinearGradient>
       </View>
 
-      <Text style={[styles.hello, { color: c.text }]}>{hello}</Text>
+      <Text style={[styles.hello, { color: c.text, fontSize: compact ? 24 : 28 }]}>{hello}</Text>
       <Text style={[styles.sub, { color: c.muted }]}>
         Чем помочь сегодня? Спроси или прикрепи фото еды — посчитаю калории
       </Text>
@@ -91,24 +87,29 @@ export function AiHero({ name }: { name?: string }) {
   );
 }
 
-/** 3 карточки-подсказки (низ, под ask box — как на референсе). */
+/** Карточки-подсказки: ряд на широком экране, вертикальный список на телефоне. */
 export function AiFeatureCards({ onPickFeature }: { onPickFeature: (prompt: string) => void }) {
   const c = useThemeColors();
+  const { width } = useWindowDimensions();
+  const narrow = width < 560;
+
   return (
-    <View style={styles.features}>
+    <View style={[styles.features, narrow && styles.featuresCol]}>
       {FEATURES.map((f) => (
         <Pressable
           key={f.title}
           onPress={() => onPickFeature(f.prompt)}
           style={({ pressed }) => [
-            styles.feat,
+            narrow ? styles.featRow : styles.feat,
             { backgroundColor: c.cardElevated, borderColor: c.border, opacity: pressed ? 0.85 : 1 },
           ]}>
           <View style={[styles.featIcon, { backgroundColor: c.accentSoft }]}>
             <Ionicons name={f.icon} size={18} color={c.accent} />
           </View>
-          <Text style={[styles.featTitle, { color: c.text }]}>{f.title}</Text>
-          <Text style={[styles.featDesc, { color: c.muted }]}>{f.desc}</Text>
+          <View style={narrow ? { flex: 1 } : undefined}>
+            <Text style={[styles.featTitle, { color: c.text }]}>{f.title}</Text>
+            <Text style={[styles.featDesc, { color: c.muted }]}>{f.desc}</Text>
+          </View>
         </Pressable>
       ))}
     </View>
@@ -116,37 +117,31 @@ export function AiFeatureCards({ onPickFeature }: { onPickFeature: (prompt: stri
 }
 
 const styles = StyleSheet.create({
-  heroWrap: { alignItems: 'center', paddingTop: 10, paddingBottom: 16 },
-  orbWrap: { width: 150, height: 150, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  glow: { position: 'absolute', width: 160, height: 160, borderRadius: 80 },
-  orb: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
+  heroWrap: { alignItems: 'center', paddingTop: 12, paddingBottom: 16 },
+  badgeWrap: { width: 96, height: 96, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  glow: { position: 'absolute', width: 110, height: 110, borderRadius: 55 },
+  badge: {
+    width: 68,
+    height: 68,
+    borderRadius: 22,
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    overflow: 'hidden',
+    justifyContent: 'center',
   },
-  orbRim: {
-    position: 'absolute',
-    width: 112,
-    height: 112,
-    borderRadius: 56,
-    borderWidth: 6,
-    borderColor: 'rgba(0,0,0,0.18)',
-  },
-  orbHi: {
-    width: 42,
-    height: 26,
-    borderRadius: 21,
-    marginTop: 18,
-    backgroundColor: 'rgba(255,255,255,0.6)',
-  },
-  hello: { fontSize: 28, fontFamily: 'Inter_700Bold', letterSpacing: -0.6, textAlign: 'center' },
+  hello: { fontFamily: 'Inter_700Bold', letterSpacing: -0.6, textAlign: 'center' },
   sub: { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 8, paddingHorizontal: 12 },
+
   features: { flexDirection: 'row', gap: 10, width: '100%', marginTop: 14 },
+  featuresCol: { flexDirection: 'column' },
   feat: { flex: 1, borderRadius: 18, borderWidth: 1, padding: 14, gap: 8 },
+  featRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+  },
   featIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  featTitle: { fontSize: 13, fontFamily: 'Inter_700Bold' },
-  featDesc: { fontSize: 11, fontFamily: 'Inter_400Regular', lineHeight: 15 },
+  featTitle: { fontSize: 14, fontFamily: 'Inter_700Bold' },
+  featDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', lineHeight: 16, marginTop: 2 },
 });
