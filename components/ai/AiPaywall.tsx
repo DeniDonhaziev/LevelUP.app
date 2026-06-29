@@ -135,7 +135,7 @@ export function AiPaywall({ sub, canSubmit, onSubmit }: Props) {
             <ActivityIndicator color={c.onAccent} size="small" />
           ) : (
             <Text style={[styles.ctaText, { color: c.onAccent }]}>
-              {pending ? 'Изменить тариф и отправить снова' : 'Я оплатил — отправить заявку'}
+              {pending ? 'Изменить тариф и отправить снова' : 'Оформить заявку'}
             </Text>
           )}
         </Pressable>
