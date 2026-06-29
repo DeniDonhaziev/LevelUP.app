@@ -55,8 +55,12 @@
     ],
     "rewrites": [
       {
+        "source": "/trecer",
+        "destination": "/trecer.html"
+      },
+      {
         "source": "/oferta",
-        "destination": "/oferta.html"
+        "destination": "/trecer.html"
       },
       {
         "source": "**",

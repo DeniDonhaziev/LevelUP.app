@@ -18,7 +18,7 @@ const PUBLIC_ROOT_FILES = [
   'manifest.webmanifest',
   'sw.js',
   'fcm-sw-config.js',
-  'oferta.html',
+  'trecer.html',
 ];
 
 function log(msg) {
