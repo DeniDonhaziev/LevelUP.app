@@ -46,13 +46,26 @@ export const YOOMONEY_WALLET = '4100119563782838';
 
 const SUCCESS_URL = 'https://leveluptracker.web.app/';
 
+/**
+ * Готовые платёжные ссылки ЮKassa по тарифам (СБП + карта + SberPay).
+ * Создаются в кабинете ЮKassa → «Платёжные ссылки» на суммы 299/699/1999 ₽.
+ * Если заполнены — имеют приоритет над оплатой картой ЮMoney (даёт СБП без ввода реквизитов).
+ */
+export const PAYMENT_LINKS: Record<PlanId, string> = {
+  '1m': '',
+  '3m': '',
+  '12m': '',
+};
+
 export function isPaymentConfigured(): boolean {
-  return YOOMONEY_WALLET.trim().length > 0;
+  return YOOMONEY_WALLET.trim().length > 0 || Object.values(PAYMENT_LINKS).some((l) => l.trim().length > 0);
 }
 
-/** Ссылка на страницу оплаты ЮMoney (СБП + карта), сумма и метка заявки уже вписаны. */
+/** Ссылка на страницу оплаты: приоритет — ЮKassa-ссылка (СБП), иначе карта ЮMoney. */
 export function buildPaymentUrl(plan: PlanId, uid: string, username: string): string | null {
-  if (!isPaymentConfigured()) return null;
+  const direct = PAYMENT_LINKS[plan]?.trim();
+  if (direct) return direct;
+  if (!YOOMONEY_WALLET.trim()) return null;
   const p = PLAN_BY_ID[plan];
   const q = [
     `receiver=${encodeURIComponent(YOOMONEY_WALLET.trim())}`,
