@@ -55,6 +55,10 @@
     ],
     "rewrites": [
       {
+        "source": "/oferta",
+        "destination": "/oferta.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
