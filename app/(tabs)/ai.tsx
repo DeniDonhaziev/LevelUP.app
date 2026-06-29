@@ -23,7 +23,7 @@ import { useAppTopic } from '@/hooks/useAppTopic';
 import { useTrackerStore } from '@/store/trackerStore';
 import { buildAiProfileContext, mapToBodyGoal } from '@/lib/onboarding';
 import { isCurrentUserAdmin, getCurrentAuthEmail } from '@/lib/admin';
-import { isSubActive, type PlanId } from '@/lib/subscription';
+import { isSubActive, SUBSCRIPTION_ENABLED, type PlanId } from '@/lib/subscription';
 import { requestSubscription } from '@/lib/firebase/subscriptionSync';
 import { WebTheme } from '@/lib/theme';
 import {
@@ -76,7 +76,7 @@ export default function AiScreen() {
   const mySubscription = useTrackerStore((s) => s.mySubscription);
   const setMySubscription = useTrackerStore((s) => s.setMySubscription);
   const isAdmin = isCurrentUserAdmin(currentUser);
-  const aiUnlocked = isAdmin || isSubActive(mySubscription);
+  const aiUnlocked = !SUBSCRIPTION_ENABLED || isAdmin || isSubActive(mySubscription);
 
   const handleSubscribe = useCallback(
     async (plan: PlanId) => {
