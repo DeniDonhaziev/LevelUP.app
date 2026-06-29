@@ -283,6 +283,8 @@ export default function AiScreen() {
           <AiPaywall
             sub={mySubscription}
             canSubmit={!!firebaseUid && !!currentUser}
+            uid={firebaseUid}
+            username={currentUser}
             onSubmit={handleSubscribe}
           />
         </ScreenScroll>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -7,7 +7,10 @@ import { WebTheme } from '@/lib/theme';
 import {
   PAYMENT_NOTE,
   PLANS,
+  PLAN_BY_ID,
+  buildPaymentUrl,
   fmtSubDate,
+  isPaymentConfigured,
   planTitle,
   type PlanId,
   type SubscriptionDoc,
@@ -16,26 +19,34 @@ import {
 type Props = {
   sub: SubscriptionDoc | null;
   canSubmit: boolean;
+  uid: string | null;
+  username: string | null;
   onSubmit: (plan: PlanId) => Promise<void>;
 };
 
 /** Платный доступ к ИИ-коучу: выбор тарифа + отправка заявки на подтверждение. */
-export function AiPaywall({ sub, canSubmit, onSubmit }: Props) {
+export function AiPaywall({ sub, canSubmit, uid, username, onSubmit }: Props) {
   const c = useThemeColors();
   const [selected, setSelected] = useState<PlanId>('3m');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const pending = sub?.status === 'pending';
+  const payEnabled = isPaymentConfigured();
+  const price = PLAN_BY_ID[selected].price;
 
   async function submit() {
     if (busy) return;
     setBusy(true);
     setError(null);
     try {
+      // Регистрируем заявку (видна админу)
       await onSubmit(selected);
+      // Переход на страницу оплаты (СБП/карта), если настроен кошелёк
+      const url = uid && username ? buildPaymentUrl(selected, uid, username) : null;
+      if (url) await Linking.openURL(url);
     } catch (e) {
-      setError((e as Error)?.message ?? 'Не удалось отправить заявку');
+      setError((e as Error)?.message ?? 'Не удалось продолжить');
     } finally {
       setBusy(false);
     }
@@ -135,11 +146,15 @@ export function AiPaywall({ sub, canSubmit, onSubmit }: Props) {
             <ActivityIndicator color={c.onAccent} size="small" />
           ) : (
             <Text style={[styles.ctaText, { color: c.onAccent }]}>
-              {pending ? 'Изменить тариф и отправить снова' : 'Оформить заявку'}
+              {payEnabled ? `Оплатить ${price} ₽` : pending ? 'Изменить тариф и отправить снова' : 'Оформить заявку'}
             </Text>
           )}
         </Pressable>
       )}
+
+      {payEnabled && canSubmit ? (
+        <Text style={[styles.expiry, { color: c.muted }]}>СБП · банковская карта · безопасно через ЮMoney</Text>
+      ) : null}
 
       {sub?.expiresAt && sub.status === 'active' ? (
         <Text style={[styles.expiry, { color: c.muted }]}>Подписка активна до {fmtSubDate(sub.expiresAt)}</Text>
