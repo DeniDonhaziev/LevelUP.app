@@ -8,6 +8,9 @@ import {
   PAYMENT_NOTE,
   PLANS,
   PLAN_BY_ID,
+  SBP_BANK,
+  SBP_PHONE,
+  SBP_RECIPIENT,
   buildPaymentUrl,
   fmtSubDate,
   isPaymentConfigured,
@@ -125,6 +128,19 @@ export function AiPaywall({ sub, canSubmit, uid, username, onSubmit }: Props) {
         })}
       </View>
 
+      {/* Перевод по СБП (ручной режим) */}
+      {!payEnabled ? (
+        <View style={[styles.sbpCard, { backgroundColor: c.card, borderColor: c.accent }]}>
+          <Text style={[styles.sbpLabel, { color: c.muted }]}>Перевод по СБП ({price} ₽)</Text>
+          <Text style={[styles.sbpPhone, { color: c.text }]} selectable>
+            {SBP_PHONE}
+          </Text>
+          <Text style={[styles.sbpBank, { color: c.muted }]}>
+            {SBP_BANK} · {SBP_RECIPIENT}
+          </Text>
+        </View>
+      ) : null}
+
       {/* Реквизиты оплаты */}
       <View style={[styles.payNote, { backgroundColor: c.cardElevated, borderColor: c.border }]}>
         <Ionicons name="card-outline" size={16} color={c.muted} />
@@ -196,6 +212,10 @@ const styles = StyleSheet.create({
   badge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
   badgeText: { fontSize: 11, fontFamily: 'Inter_700Bold' },
   planPrice: { fontSize: 18, fontFamily: 'Inter_700Bold' },
+  sbpCard: { borderRadius: 16, borderWidth: 1, padding: 16, alignItems: 'center', gap: 2 },
+  sbpLabel: { fontSize: 12, fontFamily: 'Inter_500Medium' },
+  sbpPhone: { fontSize: 22, fontFamily: 'Inter_700Bold', letterSpacing: 0.3 },
+  sbpBank: { fontSize: 13, fontFamily: 'Inter_400Regular' },
   payNote: { flexDirection: 'row', gap: 10, borderRadius: 14, borderWidth: 1, padding: 14 },
   payNoteText: { flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', lineHeight: 18 },
   error: { fontSize: 13, fontFamily: 'Inter_500Medium', textAlign: 'center' },
