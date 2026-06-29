@@ -42,7 +42,7 @@ export const PLAN_BY_ID: Record<PlanId, PlanInfo> = {
  * Создать: yoomoney.ru → войти по номеру телефона → «Кошелёк» → номер счёта.
  * Пока пусто — показывается ручной режим (заявка → админ присылает реквизиты).
  */
-export const YOOMONEY_WALLET = '';
+export const YOOMONEY_WALLET = '4100119563782838';
 
 const SUCCESS_URL = 'https://leveluptracker.web.app/';
 
