@@ -12,11 +12,11 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { NotificationSettings } from '@/components/NotificationSettings';
+import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { AppInput } from '@/components/ui/AppInput';
 import { GroupedSection } from '@/components/ui/GroupedSection';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
-import { TabScreenHeader } from '@/components/ui/TabScreenHeader';
 import { pickAvatarImageAsPersistentUri } from '@/lib/avatarPick';
 import { isFirebaseConfigured } from '@/lib/firebase/config';
 import { saveFirebaseDisplayName, saveLocalDisplayName } from '@/lib/firebase/profile';
@@ -199,7 +199,7 @@ export default function ProfileScreen() {
 
   return (
     <ScreenScroll keyboardShouldPersistTaps="handled">
-      <TabScreenHeader title="Профиль" subtitle="Настройки и уведомления" showNotify={false} />
+      <ProfileHeader name={user} photoURL={photoURL} isAdmin={admin} />
 
       <GroupedSection title="Имя">
         <View style={styles.nameBlock}>

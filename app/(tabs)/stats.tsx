@@ -12,6 +12,7 @@ import { loadRunnerLeaderboard, deleteRunnerStat } from '@/lib/firebase/runnerSy
 import { loadCyclistLeaderboard, deleteCyclistStat } from '@/lib/firebase/cyclistSync';
 import { isCurrentUserAdmin } from '@/lib/admin';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { Podium, type PodiumEntry } from '@/components/stats/Podium';
 import { useState } from 'react';
 import { useTrackerStore } from '@/store/trackerStore';
 
@@ -125,6 +126,21 @@ export default function StatsScreen() {
     };
   });
 
+  const podiumTop3: PodiumEntry[] =
+    mode === 'bike'
+      ? cyclistRows.slice(0, 3).map((r) => ({
+          name: r.name,
+          value: r.distance,
+          sub: `${r.rides} заездов`,
+          you: r.name === user,
+        }))
+      : tableRows.slice(0, 3).map((r) => ({
+          name: r.name,
+          value: r.distance,
+          sub: `${r.runs} пробежек`,
+          you: r.name === user,
+        }));
+
   return (
     <ScreenScroll>
       <TabScreenHeader
@@ -141,6 +157,9 @@ export default function StatsScreen() {
           ]}
         />
       </View>
+
+      <Podium entries={podiumTop3} />
+
       {mode === 'bike' ? (
         <GroupedSection title="Велолидеры">
           <View style={styles.mobileList}>
