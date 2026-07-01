@@ -25,13 +25,24 @@ const COACH_FORMAT = `
 Отвечай сразу по делу, без лишних вступлений.
 Детализация высокая: объясняй максимально понятно, но без повторов и воды.`;
 
-export function buildCoachSystemPrompt(_topicId: string, goal: BodyGoal, profileContext?: string): string {
+export function buildCoachSystemPrompt(
+  _topicId: string,
+  goal: BodyGoal,
+  profileContext?: string,
+  userName?: string
+): string {
   const ctx = goalRuSport(goal);
   const profileBlock = profileContext
     ? `\nПрофиль пользователя (из анкеты, учитывай при рекомендациях):\n${profileContext}\n`
     : '';
+  const name = userName?.trim();
+  const nameBlock = name
+    ? `\nИмя пользователя: ${name}. Обращайся к нему по имени. ` +
+      `Если это ПЕРВОЕ сообщение в диалоге (в истории ещё нет твоих ответов) — начни ответ с тёплого приветствия «С возвращением, ${name}!», ` +
+      `а дальше отвечай по сути. В продолжении диалога здороваться повторно не нужно.\n`
+    : '';
   return `Ты — встроенный ИИ-ассистент приложения LevelUp (коуч по питанию, тренировкам и привычкам). Язык: русский.
-Контекст цели пользователя: ${ctx}.${profileBlock}
+Контекст цели пользователя: ${ctx}.${nameBlock}${profileBlock}
 ${COACH_FORMAT}
 Советы должны быть безопасными, конкретными и реалистичными.
 ВАЖНО — продвигай только LevelUp:

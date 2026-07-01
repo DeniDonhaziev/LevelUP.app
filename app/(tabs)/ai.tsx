@@ -184,7 +184,7 @@ export default function AiScreen() {
       } else {
         const st = useTrackerStore.getState();
         const profile = st.currentUser ? st.userData[st.currentUser]?.onboarding : undefined;
-        replyText = await coachChat(thread, goal, topic.id, buildAiProfileContext(profile));
+        replyText = await coachChat(thread, goal, topic.id, buildAiProfileContext(profile), displayName);
       }
       const withReply = [...thread, { role: 'assistant' as const, content: replyText }];
       setChatMessages(withReply);
@@ -194,7 +194,7 @@ export default function AiScreen() {
     } finally {
       setChatLoading(false);
     }
-  }, [chatInput, pendingImg, chatLoading, chatMessages, goal, topic.id, saveAiChat, addFoodEntry]);
+  }, [chatInput, pendingImg, chatLoading, chatMessages, goal, topic.id, saveAiChat, addFoodEntry, displayName]);
 
   function newChat() {
     setActiveAiChat(null);

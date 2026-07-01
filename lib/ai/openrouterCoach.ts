@@ -276,12 +276,13 @@ export async function coachChat(
   messages: ChatMessage[],
   goal: BodyGoal,
   topicId: TopicId = 'sport',
-  profileContext?: string
+  profileContext?: string,
+  userName?: string
 ): Promise<string> {
   const apiKey = getOpenRouterApiKey();
   if (!apiKey) throw new Error('NO_API_KEY');
 
-  const system = buildCoachSystemPrompt(topicId, goal, profileContext);
+  const system = buildCoachSystemPrompt(topicId, goal, profileContext, userName);
 
   const res = await chatCompletionsWithRetry(apiKey, {
     model: getChatModelId(),

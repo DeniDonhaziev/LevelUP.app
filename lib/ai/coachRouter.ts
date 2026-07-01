@@ -36,10 +36,11 @@ export async function coachChat(
   messages: ChatMessage[],
   goal: BodyGoal,
   topicId: TopicId = 'sport',
-  profileContext?: string
+  profileContext?: string,
+  userName?: string
 ): Promise<string> {
   requireOpenRouter();
-  return openrouterCoachChat(messages, goal, topicId, profileContext);
+  return openrouterCoachChat(messages, goal, topicId, profileContext, userName);
 }
 
 export async function analyzeFoodDescription(
