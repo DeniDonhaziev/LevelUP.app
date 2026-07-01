@@ -14,7 +14,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { NotificationSettings } from '@/components/NotificationSettings';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { AppInput } from '@/components/ui/AppInput';
-import { GroupedSection } from '@/components/ui/GroupedSection';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
 import { pickAvatarImageAsPersistentUri } from '@/lib/avatarPick';
@@ -202,7 +201,7 @@ export default function ProfileScreen() {
       <ProfileHeader name={user} photoURL={photoURL} isAdmin={admin} />
 
       {/* Аккаунт: фото и имя в одном блоке */}
-      <GroupedSection title="Аккаунт">
+      <Box title="Аккаунт" c={c}>
         <View style={styles.accountBlock}>
           <View style={styles.avatarWrap}>
             {uploading ? (
@@ -222,7 +221,7 @@ export default function ProfileScreen() {
                 onError={() => setLocalAvatarDataUrl(null)}
               />
             ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: c.cardHover, borderColor: c.border }]}>
+              <View style={[styles.avatarPlaceholder, { backgroundColor: c.cardElevated, borderColor: c.border }]}>
                 <Text style={[styles.avatarLetter, { color: c.text }]}>{displayInitial}</Text>
               </View>
             )}
@@ -253,9 +252,9 @@ export default function ProfileScreen() {
           />
           <PrimaryButton label="Сохранить имя" loading={saving} onPress={() => void saveName()} />
         </View>
-      </GroupedSection>
+      </Box>
 
-      <GroupedSection title="Анкета">
+      <Box title="Анкета" c={c}>
         <NavRow
           icon="clipboard-outline"
           tint={c.pastelMint}
@@ -265,11 +264,11 @@ export default function ProfileScreen() {
           onPress={() => router.push('/onboarding?edit=1')}
           c={c}
         />
-      </GroupedSection>
+      </Box>
 
-      <GroupedSection title="Местоположение">
+      <Box title="Местоположение" c={c}>
         <View style={styles.geoBlock}>
-          <View style={[styles.geoStatusRow, { backgroundColor: c.cardHover, borderColor: c.border }]}>
+          <View style={[styles.geoStatusRow, { backgroundColor: c.cardElevated, borderColor: c.border }]}>
             <Ionicons
               name={geoOk === true ? 'location' : geoOk === false ? 'location-outline' : 'navigate-outline'}
               size={20}
@@ -293,12 +292,12 @@ export default function ProfileScreen() {
           />
           {geoText ? <Text style={[styles.geoResult, { color: c.muted }]}>{geoText}</Text> : null}
         </View>
-      </GroupedSection>
+      </Box>
 
       <NotificationSettings />
 
       {admin ? (
-        <GroupedSection title="Администрирование">
+        <Box title="Администрирование" c={c}>
           <NavRow
             icon="shield-checkmark"
             tint={c.pastelMint}
@@ -308,10 +307,10 @@ export default function ProfileScreen() {
             onPress={() => router.push('/admin')}
             c={c}
           />
-        </GroupedSection>
+        </Box>
       ) : null}
 
-      <GroupedSection title="Безопасность">
+      <Box title="Безопасность" c={c}>
         <View style={styles.nameBlock}>
           <Text style={[styles.label, { color: c.muted }]}>Текущий пароль</Text>
           <AppInput
@@ -343,8 +342,26 @@ export default function ProfileScreen() {
             onPress={() => void savePassword()}
           />
         </View>
-      </GroupedSection>
+      </Box>
     </ScreenScroll>
+  );
+}
+
+/** Карточка-«бокс» в стиле блока клана: чёрный фон, тонкая рамка, заголовок внутри. */
+function Box({
+  title,
+  children,
+  c,
+}: {
+  title: string;
+  children: React.ReactNode;
+  c: ReturnType<typeof useThemeColors>;
+}) {
+  return (
+    <View style={[styles.box, { backgroundColor: c.cardHover, borderColor: c.border }]}>
+      <Text style={[styles.boxTitle, { color: c.text }]}>{title}</Text>
+      {children}
+    </View>
   );
 }
 
@@ -385,7 +402,19 @@ function NavRow({
 }
 
 const styles = StyleSheet.create({
-  accountBlock: { padding: 16, gap: 12, alignItems: 'center' },
+  box: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  boxTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', letterSpacing: -0.3, marginBottom: 12 },
+  accountBlock: { gap: 12, alignItems: 'center' },
   divider: { height: StyleSheet.hairlineWidth, alignSelf: 'stretch', marginVertical: 4, opacity: 0.7 },
   avatarHint: { fontSize: 12, fontFamily: 'Inter_400Regular', textAlign: 'center' },
   avatarEditBtn: {
@@ -439,14 +468,14 @@ const styles = StyleSheet.create({
   avatarLetter: { fontSize: 48, fontFamily: 'Inter_700Bold' },
   removeLink: { alignItems: 'center', paddingVertical: 4 },
   removeLinkText: { fontSize: 14, fontFamily: 'Inter_500Medium' },
-  nameBlock: { padding: 16, gap: 12 },
+  nameBlock: { gap: 12 },
   label: { fontSize: 13, fontFamily: 'Inter_500Medium' },
-  anketaRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
+  anketaRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   anketaIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   anketaBody: { flex: 1 },
   anketaTitle: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
   anketaSub: { fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 2 },
-  geoBlock: { padding: 16, gap: 10 },
+  geoBlock: { gap: 10 },
   geoStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',

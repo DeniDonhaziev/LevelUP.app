@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, Switch, Text, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { GroupedSection } from '@/components/ui/GroupedSection';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { isFirebaseConfigured } from '@/lib/firebase/config';
@@ -139,10 +138,11 @@ export function NotificationSettings() {
   const pm = permMeta[perm];
 
   return (
-    <GroupedSection title="Push-уведомления">
+    <View style={[styles.box, { backgroundColor: c.cardHover, borderColor: c.border }]}>
+      <Text style={[styles.boxTitle, { color: c.text }]}>Push-уведомления</Text>
       <View style={styles.block}>
         {/* Статус разрешения */}
-        <View style={[styles.statusBox, { backgroundColor: c.cardHover, borderColor: c.border }]}>
+        <View style={[styles.statusBox, { backgroundColor: c.cardElevated, borderColor: c.border }]}>
           <Ionicons name={pm.icon} size={20} color={pm.color} />
           <Text style={[styles.statusText, { color: c.text }]}>{pm.text}</Text>
         </View>
@@ -195,12 +195,24 @@ export function NotificationSettings() {
 
         {status ? <Text style={[styles.statusLine, { color: c.muted }]}>{status}</Text> : null}
       </View>
-    </GroupedSection>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  block: { padding: 16, gap: 10 },
+  box: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  boxTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', letterSpacing: -0.3, marginBottom: 12 },
+  block: { gap: 10 },
   statusBox: {
     flexDirection: 'row',
     alignItems: 'center',
