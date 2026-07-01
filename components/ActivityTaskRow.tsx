@@ -86,6 +86,6 @@ const styles = StyleSheet.create({
   },
   nameWrap: { flex: 1 },
   name: { fontSize: 15, fontFamily: 'Inter_500Medium' },
-  nameDone: { textDecorationLine: 'line-through', color: '#8E8E93' },
+  nameDone: { textDecorationLine: 'line-through', color: '#9A9EA8' },
   deleteBtn: { padding: 4 },
 });

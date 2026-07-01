@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   infoLocation: { flex: 1, fontSize: 13, fontFamily: 'Inter_500Medium' },
   infoStats: { flexDirection: 'row', alignItems: 'center' },
   infoStat: { flex: 1 },
-  infoStatLabel: { color: '#8E8E93', fontSize: 11, fontFamily: 'Inter_500Medium', marginBottom: 3 },
+  infoStatLabel: { color: '#9A9EA8', fontSize: 11, fontFamily: 'Inter_500Medium', marginBottom: 3 },
   infoStatValue: { color: '#FFFFFF', fontSize: 17, fontFamily: 'Inter_700Bold', letterSpacing: -0.3 },
   infoDivider: { width: StyleSheet.hairlineWidth, height: 28, marginHorizontal: 8 },
   goBtn: { paddingVertical: 15, borderRadius: 14, alignItems: 'center', marginTop: 8 },
