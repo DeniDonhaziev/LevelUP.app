@@ -2,9 +2,9 @@
 export const Dark = {
   bg: '#000000',
   bgSoft: '#050505',
-  card: '#0C0C0C',
-  cardElevated: '#121212',
-  cardHover: '#1A1A1A',
+  card: '#080808',
+  cardElevated: '#0D0D0D',
+  cardHover: '#131313',
   lime: '#C1FF00',
   limeSoft: 'rgba(193, 255, 0, 0.14)',
   limeGlow: 'rgba(193, 255, 0, 0.35)',
