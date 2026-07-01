@@ -74,13 +74,8 @@ export default function AiScreen() {
   const isAdmin = isCurrentUserAdmin(currentUser);
   const aiUnlocked = !SUBSCRIPTION_ENABLED || isAdmin || isSubActive(mySubscription);
 
-  // Имя для приветствия в герое
-  const displayName = useTrackerStore((s) => {
-    const u = s.currentUser;
-    if (!u) return '';
-    const onboardName = s.userData[u]?.onboarding?.name?.trim();
-    return onboardName || u;
-  });
+  // Имя для приветствия — актуальное имя профиля (то, что пользователь меняет в профиле).
+  const displayName = useTrackerStore((s) => s.currentUser?.trim() ?? '');
 
   const handleSubscribe = useCallback(
     async (plan: PlanId) => {

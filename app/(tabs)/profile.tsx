@@ -201,8 +201,49 @@ export default function ProfileScreen() {
     <ScreenScroll keyboardShouldPersistTaps="handled">
       <ProfileHeader name={user} photoURL={photoURL} isAdmin={admin} />
 
-      <GroupedSection title="Имя">
-        <View style={styles.nameBlock}>
+      {/* Аккаунт: фото и имя в одном блоке */}
+      <GroupedSection title="Аккаунт">
+        <View style={styles.accountBlock}>
+          <View style={styles.avatarWrap}>
+            {uploading ? (
+              <View style={styles.avatarLoading}>
+                {photoURL ? (
+                  <Image source={{ uri: photoURL }} style={styles.avatarImgDimmed} resizeMode="cover" />
+                ) : null}
+                <View style={styles.avatarSpinnerOverlay}>
+                  <ActivityIndicator size="large" color={c.text} />
+                </View>
+              </View>
+            ) : photoURL ? (
+              <Image
+                source={{ uri: photoURL }}
+                style={styles.avatarImg}
+                resizeMode="cover"
+                onError={() => setLocalAvatarDataUrl(null)}
+              />
+            ) : (
+              <View style={[styles.avatarPlaceholder, { backgroundColor: c.cardHover, borderColor: c.border }]}>
+                <Text style={[styles.avatarLetter, { color: c.text }]}>{displayInitial}</Text>
+              </View>
+            )}
+            <Pressable
+              onPress={() => void pickPhoto()}
+              disabled={uploading}
+              style={[styles.avatarEditBtn, { backgroundColor: c.accent, borderColor: c.cardElevated }]}>
+              <Ionicons name="camera" size={16} color={c.onAccent} />
+            </Pressable>
+          </View>
+
+          {photoURL ? (
+            <Pressable onPress={removePhoto} disabled={uploading} style={styles.removeLink}>
+              <Text style={[styles.removeLinkText, { color: c.danger }]}>Убрать фото</Text>
+            </Pressable>
+          ) : (
+            <Text style={[styles.avatarHint, { color: c.muted }]}>Нажмите на камеру, чтобы выбрать аватар</Text>
+          )}
+
+          <View style={[styles.divider, { backgroundColor: c.border }]} />
+
           <Text style={[styles.label, { color: c.muted }]}>Отображаемое имя</Text>
           <AppInput
             value={name}
@@ -214,40 +255,16 @@ export default function ProfileScreen() {
         </View>
       </GroupedSection>
 
-      {admin ? (
-        <GroupedSection title="Администрирование">
-          <Pressable
-            onPress={() => router.push('/admin')}
-            style={({ pressed }) => [styles.anketaRow, { opacity: pressed ? 0.7 : 1 }]}>
-            <View style={[styles.anketaIcon, { backgroundColor: c.pastelMint }]}>
-              <Ionicons name="shield-checkmark" size={20} color={c.lime} />
-            </View>
-            <View style={styles.anketaBody}>
-              <Text style={[styles.anketaTitle, { color: c.text }]}>Админ-панель</Text>
-              <Text style={[styles.anketaSub, { color: c.muted }]} numberOfLines={1}>
-                Удаление кланов, сообщений, кик участников
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={c.muted} />
-          </Pressable>
-        </GroupedSection>
-      ) : null}
-
       <GroupedSection title="Анкета">
-        <Pressable
+        <NavRow
+          icon="clipboard-outline"
+          tint={c.pastelMint}
+          iconColor={c.lime}
+          title="Моя анкета"
+          subtitle={onboardingSummaryLine(onboarding)}
           onPress={() => router.push('/onboarding?edit=1')}
-          style={({ pressed }) => [styles.anketaRow, { opacity: pressed ? 0.7 : 1 }]}>
-          <View style={[styles.anketaIcon, { backgroundColor: c.pastelMint }]}>
-            <Ionicons name="clipboard-outline" size={20} color={c.lime} />
-          </View>
-          <View style={styles.anketaBody}>
-            <Text style={[styles.anketaTitle, { color: c.text }]}>Моя анкета</Text>
-            <Text style={[styles.anketaSub, { color: c.muted }]} numberOfLines={1}>
-              {onboardingSummaryLine(onboarding)}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={c.muted} />
-        </Pressable>
+          c={c}
+        />
       </GroupedSection>
 
       <GroupedSection title="Местоположение">
@@ -278,49 +295,23 @@ export default function ProfileScreen() {
         </View>
       </GroupedSection>
 
-      <GroupedSection title="Фото">
-        <View style={styles.avatarBlock}>
-          <View style={styles.avatarWrap}>
-            {uploading ? (
-              <View style={styles.avatarLoading}>
-                {photoURL ? (
-                  <Image source={{ uri: photoURL }} style={styles.avatarImgDimmed} resizeMode="cover" />
-                ) : null}
-                <View style={styles.avatarSpinnerOverlay}>
-                  <ActivityIndicator size="large" color={c.text} />
-                </View>
-              </View>
-            ) : photoURL ? (
-              <Image
-                source={{ uri: photoURL }}
-                style={styles.avatarImg}
-                resizeMode="cover"
-                onError={() => setLocalAvatarDataUrl(null)}
-              />
-            ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: c.cardHover, borderColor: c.border }]}>
-                <Text style={[styles.avatarLetter, { color: c.text }]}>{displayInitial}</Text>
-              </View>
-            )}
-          </View>
-
-          <PrimaryButton
-            variant="secondary"
-            label="Выбрать аватар"
-            onPress={() => void pickPhoto()}
-            disabled={uploading}
-          />
-          {photoURL ? (
-            <Pressable onPress={removePhoto} disabled={uploading} style={styles.removeLink}>
-              <Text style={[styles.removeLinkText, { color: c.danger }]}>Убрать фото</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </GroupedSection>
-
       <NotificationSettings />
 
-      <GroupedSection title="Пароль">
+      {admin ? (
+        <GroupedSection title="Администрирование">
+          <NavRow
+            icon="shield-checkmark"
+            tint={c.pastelMint}
+            iconColor={c.lime}
+            title="Админ-панель"
+            subtitle="Удаление кланов, сообщений, кик участников"
+            onPress={() => router.push('/admin')}
+            c={c}
+          />
+        </GroupedSection>
+      ) : null}
+
+      <GroupedSection title="Безопасность">
         <View style={styles.nameBlock}>
           <Text style={[styles.label, { color: c.muted }]}>Текущий пароль</Text>
           <AppInput
@@ -357,12 +348,61 @@ export default function ProfileScreen() {
   );
 }
 
+/** Строка-навигация: иконка, заголовок, подпись, стрелка. */
+function NavRow({
+  icon,
+  tint,
+  iconColor,
+  title,
+  subtitle,
+  onPress,
+  c,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  tint: string;
+  iconColor: string;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+  c: ReturnType<typeof useThemeColors>;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.anketaRow, { opacity: pressed ? 0.7 : 1 }]}>
+      <View style={[styles.anketaIcon, { backgroundColor: tint }]}>
+        <Ionicons name={icon} size={20} color={iconColor} />
+      </View>
+      <View style={styles.anketaBody}>
+        <Text style={[styles.anketaTitle, { color: c.text }]}>{title}</Text>
+        <Text style={[styles.anketaSub, { color: c.muted }]} numberOfLines={1}>
+          {subtitle}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={c.muted} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  avatarBlock: { padding: 16, gap: 12, alignItems: 'center' },
+  accountBlock: { padding: 16, gap: 12, alignItems: 'center' },
+  divider: { height: StyleSheet.hairlineWidth, alignSelf: 'stretch', marginVertical: 4, opacity: 0.7 },
+  avatarHint: { fontSize: 12, fontFamily: 'Inter_400Regular', textAlign: 'center' },
+  avatarEditBtn: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   avatarWrap: {
     alignItems: 'center',
-    minHeight: 120,
     justifyContent: 'center',
+    position: 'relative',
   },
   avatarImg: {
     width: 120,
